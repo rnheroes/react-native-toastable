@@ -1,8 +1,14 @@
 # react-native-toastable
 
-�Blazingly fast and fully�
+🍞 Blazingly fast and fully customizable Toaster component for React Native
 
 ## Installation
+
+```sh
+yarn add react-native-toastable
+```
+
+or
 
 ```sh
 npm install react-native-toastable
@@ -10,13 +16,7 @@ npm install react-native-toastable
 
 ## Usage
 
-```js
-import { multiply } from 'react-native-toastable';
-
-// ...
-
-const result = await multiply(3, 7);
-```
+-
 
 ## Contributing
 

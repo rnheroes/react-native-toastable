@@ -1,7 +1,7 @@
 {
   "name": "react-native-toastable",
   "version": "0.1.0",
-  "description": "test",
+  "description": "🍞 Blazingly fast and fully customizable Toaster component for React Native",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
   "types": "lib/typescript/index.d.ts",
@@ -38,7 +38,14 @@
   "keywords": [
     "react-native",
     "ios",
-    "android"
+    "android",
+    "toaster",
+    "toast",
+    "notification",
+    "alert",
+    "snackbar",
+    "toastable",
+    "toastify"
   ],
   "repository": "https://github.com/rnheroes/react-native-toastable",
   "author": "React Native Heroes <yigithanyucedag@gmail.com> (https://github.com/rnheroes)",
