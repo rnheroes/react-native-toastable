@@ -1,18 +1,17 @@
 import * as React from 'react';
 
-import { StyleSheet, View, Text } from 'react-native';
-import { multiply } from 'react-native-toastable';
+import { Button, StyleSheet, View } from 'react-native';
+import { Toastable } from 'react-native-toastable';
+import { showToastable } from 'src/utils';
 
 export default function App() {
-  const [result, setResult] = React.useState<number | undefined>();
-
-  React.useEffect(() => {
-    multiply(3, 7).then(setResult);
-  }, []);
-
   return (
     <View style={styles.container}>
-      <Text>Result: {result}</Text>
+      <Button
+        title="Show Toastable"
+        onPress={() => showToastable({ message: 'react-native-heroes' })}
+      />
+      <Toastable containerStyle={styles.toast} />
     </View>
   );
 }
@@ -23,9 +22,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  box: {
-    width: 60,
-    height: 60,
-    marginVertical: 20,
+  toast: {
+    marginTop: 200,
   },
 });
