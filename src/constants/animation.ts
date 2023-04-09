@@ -51,5 +51,5 @@ export const ANIMATION_VALUE: {
   },
 };
 
-export const TOASTER_DURATION = 1000 * 2;
-export const TOASTER_ANIMATION_DURATION = 600;
+export const TOASTABLE_DURATION = 1000 * 2;
+export const TOASTABLE_ANIMATION_DURATION = 600;

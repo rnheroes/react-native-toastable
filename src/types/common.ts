@@ -11,14 +11,16 @@ export type ToastableBodyParams = {
    * @example
    * ```tsx
    * renderContent={(props) => (
-   *  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-   *   <Icon name="check" size={20} color={props.textColor} />
-   *  <Text style={{ color: props.textColor }}>{props.message}</Text>
+   *  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor:TOASTABLE_STATUS_MAP[props.status] }}>
+   *   <Text>{props.title}</Text>
+   *  <Text>{props.message}</Text>
    * </View>
    * )}
    * ```
    */
-  renderContent?: (props: ToastableBodyParams) => React.ReactNode;
+  renderContent?: (
+    props: Pick<ToastableBodyParams, 'message' | 'title' | 'status' | 'onPress'>
+  ) => React.ReactNode;
   /**
    * Custom content style
    * @default undefined
@@ -30,11 +32,6 @@ export type ToastableBodyParams = {
    */
   backgroundColor?: ColorValue;
   /**
-   * Custom text color, if this is set
-   * @default '#FFFFFF'
-   */
-  textColor?: ColorValue;
-  /**
    * Message status, this will be used to determine background color based on statusMap prop
    * @default 'info'
    */
@@ -43,7 +40,12 @@ export type ToastableBodyParams = {
    * Message to be displayed
    * @default ''
    */
-  message?: TextProps['children'];
+  message: TextProps['children'];
+  /**
+   * Title to be displayed
+   * @default ''
+   * */
+  title?: TextProps['children'];
   /**
    * On press callback
    * @default undefined
@@ -74,6 +76,26 @@ export type ToastableBodyParams = {
    * @default 'up'
    * */
   swipeDirection?: 'up' | 'left' | 'right' | Array<'up' | 'left' | 'right'>;
+  /**
+   * Custom message color
+   * @default #FFFFFF
+   * */
+  messageColor?: ColorValue;
+  /**
+   * Custom title color
+   * @default #FFFFFF
+   * */
+  titleColor?: ColorValue;
+  /**
+   * Custom title style
+   * @default undefined
+   * */
+  titleStyle?: TextProps['style'];
+  /**
+   * Custom message style
+   * @default undefined
+   * */
+  messageStyle?: TextProps['style'];
 };
 
 export type SwipeDirection = 'up' | 'left' | 'right' | 'down';
@@ -81,12 +103,7 @@ export type SwipeDirection = 'up' | 'left' | 'right' | 'down';
 // TODO: Support animationIn, animationOut props
 export type ToastableProps = Omit<
   ToastableBodyParams,
-  | 'textColor'
-  | 'backgroundColor'
-  | 'status'
-  | 'message'
-  | 'onPress'
-  | 'contentStyle'
+  'backgroundColor' | 'status' | 'message' | 'onPress' | 'contentStyle'
 > & {
   /**
    * Status map, this will be used to determine background color based on status prop
@@ -122,6 +139,11 @@ export type ToastableBodyProps = Pick<
   | 'status'
   | 'backgroundColor'
   | 'contentStyle'
-  | 'textColor'
+  | 'renderContent'
+  | 'title'
+  | 'titleColor'
+  | 'titleStyle'
+  | 'messageColor'
+  | 'messageStyle'
 > &
   Pick<ToastableProps, 'statusMap'>;

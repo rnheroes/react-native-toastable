@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { PALETTE, STATUS_MAP } from '../constants';
+import { TOASTABLE_PALETTE, TOASTABLE_STATUS_MAP } from '../constants';
 import type { ToastableBodyProps } from '../types';
 
 export const ToastableBody = ({
@@ -10,9 +10,27 @@ export const ToastableBody = ({
   status = 'info',
   backgroundColor,
   contentStyle,
-  textColor = PALETTE['white-500'],
-  statusMap = STATUS_MAP,
+  statusMap = TOASTABLE_STATUS_MAP,
+  renderContent,
+  title,
+  titleColor = TOASTABLE_PALETTE['white-500'],
+  titleStyle,
+  messageColor = TOASTABLE_PALETTE['white-500'],
+  messageStyle,
 }: ToastableBodyProps) => {
+  if (typeof renderContent === 'function') {
+    return (
+      <>
+        {renderContent({
+          message,
+          status,
+          title,
+          onPress,
+        })}
+      </>
+    );
+  }
+
   return (
     <Pressable
       onPress={onPress}
@@ -22,7 +40,14 @@ export const ToastableBody = ({
         contentStyle,
       ]}
     >
-      <Text style={{ color: textColor }}>{message}</Text>
+      {title && (
+        <Text style={[{ color: titleColor }, styles.title, titleStyle]}>
+          {title}
+        </Text>
+      )}
+      {message && (
+        <Text style={[{ color: messageColor }, messageStyle]}>{message}</Text>
+      )}
     </Pressable>
   );
 };
@@ -31,5 +56,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     borderRadius: 12,
+  },
+  title: {
+    fontSize: 16,
   },
 });

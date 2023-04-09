@@ -9,8 +9,10 @@ import { StyleSheet } from 'react-native';
 
 import {
   MAX_TOASTABLE_HEIGHT,
-  TOASTER_ANIMATION_DURATION,
-  TOASTER_DURATION,
+  TOASTABLE_ANIMATION_DURATION,
+  TOASTABLE_DURATION,
+  TOASTABLE_PALETTE,
+  TOASTABLE_STATUS_MAP,
 } from '../constants';
 import type {
   ToastableBodyParams,
@@ -23,9 +25,18 @@ import { ToastableWrapper } from './ToastableWrapper';
 export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
   (
     {
-      animationInTiming = TOASTER_ANIMATION_DURATION,
-      animationOutTiming = TOASTER_ANIMATION_DURATION,
+      animationInTiming = TOASTABLE_ANIMATION_DURATION,
+      animationOutTiming = TOASTABLE_ANIMATION_DURATION,
       swipeDirection = ['right', 'left', 'up'],
+      renderContent,
+      title,
+      alwaysVisible = false,
+      duration = TOASTABLE_DURATION,
+      statusMap = TOASTABLE_STATUS_MAP,
+      titleColor = TOASTABLE_PALETTE['white-500'],
+      messageColor = TOASTABLE_PALETTE['white-500'],
+      titleStyle,
+      messageStyle,
       ...props
     },
     ref
@@ -34,16 +45,22 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
     const [data, setData] = useState<ToastableBodyParams | null>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const isAlwaysVisible = props?.alwaysVisible || data?.alwaysVisible;
-    const duration = props.duration ?? data?.duration ?? TOASTER_DURATION;
+    alwaysVisible = data?.alwaysVisible ?? alwaysVisible;
+    duration = data?.duration ?? duration;
     animationInTiming = data?.animationInTiming ?? animationInTiming;
     animationOutTiming = data?.animationOutTiming ?? animationOutTiming;
     swipeDirection = data?.swipeDirection ?? swipeDirection;
+    renderContent = data?.renderContent ?? renderContent;
+    title = data?.title ?? title;
+    titleColor = data?.titleColor ?? titleColor;
+    titleStyle = data?.titleStyle ?? titleStyle;
+    messageColor = data?.messageColor ?? messageColor;
+    messageStyle = data?.messageStyle ?? messageStyle;
 
     useImperativeHandle(ref, () => ({ showToastable }));
 
     useEffect(() => {
-      if (isAlwaysVisible) {
+      if (alwaysVisible) {
         return;
       }
 
@@ -54,7 +71,7 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
       }
 
       timeoutRef.current = setTimeout(hide, duration);
-    }, [isVisible, isAlwaysVisible, duration]);
+    }, [isVisible, alwaysVisible, duration]);
 
     const showToastable = (param: ToastableBodyParams) => {
       setData(param);
@@ -62,7 +79,7 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
     };
 
     const onPress = () => {
-      if (isAlwaysVisible) {
+      if (alwaysVisible) {
         hide();
       }
 
@@ -93,15 +110,17 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
           props.onToastableHide?.();
         }}
       >
-        {typeof props.renderContent === 'function' ? (
-          props.renderContent(data)
-        ) : (
-          <ToastableBody
-            {...data}
-            statusMap={props.statusMap}
-            onPress={onPress}
-          />
-        )}
+        <ToastableBody
+          {...data}
+          renderContent={renderContent}
+          title={title}
+          statusMap={statusMap}
+          onPress={onPress}
+          titleColor={titleColor}
+          titleStyle={titleStyle}
+          messageColor={messageColor}
+          messageStyle={messageStyle}
+        />
       </ToastableWrapper>
     );
   }
