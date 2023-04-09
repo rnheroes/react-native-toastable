@@ -8,7 +8,7 @@
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
 
 
-![Demo](docs/preview.mp4)
+![Demo](docs/preview.webm)
 
 ## Installation
 
