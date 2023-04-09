@@ -28,6 +28,10 @@ export const processNextToastable = () => {
   toastableRef.current?.showToastable(toastableBody);
 };
 
+/**
+ * Show toastable with given params and enqueue it if there is already a toastable visible on screen
+ * @param item ToastableBodyParams
+ * */
 export const showToastable = (item: ToastableBodyParams) => enqueue(item);
 
 export const toastableRef = createRef<ToastableRef>();
