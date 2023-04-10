@@ -2,12 +2,12 @@
 
 🍞 Blazingly fast and fully customizable Toaster component for React Native
 
-- Highly customizable, allowing you to tailor it to fit your specific needs
+- Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
 - Fully typed, using TypeScript
+- Supports swipe to dismiss multiple directions (left, right, up)
 - Performant, using native animations and avoiding unnecessary re-renders
 - Zero external dependencies
-- Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
-- Supports swipe to dismiss multiple directions (left, right, up)
+- Highly customizable, allowing you to tailor it to fit your specific needs
 
 
 https://user-images.githubusercontent.com/43743872/230865010-6c1c7890-2eec-47c1-bbe4-44c6c6379037.mp4
@@ -307,6 +307,9 @@ titleColor | `ColorValue` | Custom title color, if this is set. | `'#FFFFFF'` |
 titleStyle | `TextStyle` | Custom title style. | `undefined` |
 messageStyle | `TextStyle` | Custom message style. | `undefined` |
 
+## Contributing
+
+See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
 
 ## Roadmap
 
@@ -317,9 +320,9 @@ messageStyle | `TextStyle` | Custom message style. | `undefined` |
 - Support snackbars
 - Add custom status support
 
-## Contributing
+## Inspiration
 
-See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
+- [react-native-modal](https://github.com/react-native-modal/react-native-modal)
 
 ## License
 
