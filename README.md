@@ -1,5 +1,9 @@
 # react-native-toastable
 
+[![npm](https://img.shields.io/npm/dm/react-native-toastable)](https://www.npmjs.com/package/react-native-toastable)
+![npm bundle size](https://img.shields.io/bundlephobia/min/react-native-toastable)
+[![HitCount](https://hits.dwyl.com/rnheroes/react-native-toastable.svg?style=flat-square&show=unique)](http://hits.dwyl.com/rnheroes/react-native-toastable)
+
 🍞 Blazingly fast and fully customizable Toaster component for React Native
 
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
