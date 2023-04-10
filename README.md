@@ -8,9 +8,9 @@
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
 - Supports swipe to dismiss multiple directions (left, right, up)
 
-<video width="320" height="600" controls style="margin: 0 auto;">
-  <source src="docs/preview.mp4" type="video/mp4">
-</video>
+
+https://user-images.githubusercontent.com/43743872/230865010-6c1c7890-2eec-47c1-bbe4-44c6c6379037.mp4
+
 
 ## Installation
 
