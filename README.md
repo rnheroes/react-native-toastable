@@ -25,10 +25,9 @@ npm install react-native-toastable
 ```
 
 ## Usage
-Place Toastable component at the root of your app, and use `showToastable` function to show toast.
-You can override default children component by passing `renderContent` function to `showToastable` function or directly to `Toastable` component. Please see examples below. 
+Place `Toastable` component at the root of your app, and use `showToastable` function anywhere in your app to show.
 
-All examples below assume that you have placed `Toastable` component at the root of your app and imported necessary components and functions.
+*All examples below assume that you have placed `Toastable` component at the root of your app and imported necessary components and functions.*
 ### Basic Usage
 
 ```js
