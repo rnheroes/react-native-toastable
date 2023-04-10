@@ -4,11 +4,13 @@
 
 - Highly customizable, allowing you to tailor it to fit your specific needs
 - Performant, using native animations and avoiding unnecessary re-renders
-- Zero external dependencies (except for React Native itself)
+- Zero external dependencies
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
+- Supports swipe to dismiss multiple directions (left, right, up)
 
-
-![Demo](docs/preview.gif)
+<video width="320" height="600" controls style="margin: 0 auto;">
+  <source src="docs/preview.mp4" type="video/mp4">
+</video>
 
 ## Installation
 
@@ -54,7 +56,7 @@ export default function Example() {
 }
 ```
 
-### Qeuueing Toastables
+### Queueing
 
 ```js
 let number = 0
