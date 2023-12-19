@@ -96,6 +96,16 @@ export type ToastableBodyParams = {
    * @default undefined
    * */
   messageStyle?: TextProps['style'];
+  /**
+   * Toast container position
+   * @default 'top'
+   * */
+  position?: 'top' | 'bottom' | 'center';
+  /**
+   * Toast container offset
+   * @default 0
+   * */
+  offset?: number;
 };
 
 export type SwipeDirection = 'up' | 'left' | 'right' | 'down';
@@ -124,10 +134,16 @@ export type ToastableProps = Omit<
    * @default undefined
    * */
   containerStyle?: ViewProps['style'];
+  /**
+   * Toast container offset
+   * @default 0
+   * */
+  offset: number;
 };
 
 export type ToastableRef = {
   showToastable: (param: ToastableBodyParams) => void;
+  hideToastable: () => void;
 } | null;
 
 export type StatusMap = Record<ToastableMessageStatus, ColorValue>;

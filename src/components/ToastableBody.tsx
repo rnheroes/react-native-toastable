@@ -55,7 +55,7 @@ export const ToastableBody = ({
 const styles = StyleSheet.create({
   content: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 4,
   },
   title: {
     fontSize: 16,

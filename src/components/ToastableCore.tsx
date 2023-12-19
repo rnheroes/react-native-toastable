@@ -8,7 +8,6 @@ import React, {
 import { StyleSheet } from 'react-native';
 
 import {
-  MAX_TOASTABLE_HEIGHT,
   TOASTABLE_ANIMATION_DURATION,
   TOASTABLE_DURATION,
   TOASTABLE_PALETTE,
@@ -37,6 +36,8 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
       messageColor = TOASTABLE_PALETTE['white-500'],
       titleStyle,
       messageStyle,
+      position = 'top',
+      offset = 0,
       ...props
     },
     ref
@@ -56,8 +57,10 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
     titleStyle = data?.titleStyle ?? titleStyle;
     messageColor = data?.messageColor ?? messageColor;
     messageStyle = data?.messageStyle ?? messageStyle;
+    position = data?.position ?? position;
+    offset = data?.offset ?? offset;
 
-    useImperativeHandle(ref, () => ({ showToastable }));
+    useImperativeHandle(ref, () => ({ showToastable, hideToastable: hide }));
 
     useEffect(() => {
       if (alwaysVisible) {
@@ -96,15 +99,18 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
 
     return (
       <ToastableWrapper
-        style={[styles.container, props.containerStyle]}
+        style={[
+          styles.container,
+          props.containerStyle,
+          POSITION_STYLE_MAP[position](offset),
+        ]}
         animationOutTiming={animationInTiming}
         animationInTiming={animationOutTiming}
         swipeDirection={swipeDirection}
         swipeThreshold={20}
         isVisible={isVisible}
-        onSwipeComplete={(e) => {
+        onSwipeComplete={(_e) => {
           hide();
-          console.log(e.swipingDirection);
         }}
         onToasterHide={() => {
           props.onToastableHide?.();
@@ -128,7 +134,33 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
 
 const styles = StyleSheet.create({
   container: {
-    maxHeight: MAX_TOASTABLE_HEIGHT,
-    marginHorizontal: 24,
+    marginHorizontal: 16,
+  },
+  top: {
+    justifyContent: 'flex-start',
+  },
+  bottom: {
+    justifyContent: 'flex-end',
+  },
+  center: {
+    top: undefined,
+    bottom: undefined,
+    justifyContent: 'center',
   },
 });
+
+const POSITION_STYLE_MAP = {
+  top: (value: number) => ({
+    ...styles.top,
+    top: value,
+  }),
+  bottom: (value: number) => ({
+    ...styles.bottom,
+    top: -value,
+  }),
+  center: (_value?: number) => ({
+    ...styles.center,
+    top: undefined,
+    bottom: undefined,
+  }),
+};

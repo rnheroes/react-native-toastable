@@ -381,11 +381,8 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
-    // backgroundColor: 'red',
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    // backgroundColor: 'blue',
   },
 });

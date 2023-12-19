@@ -31,6 +31,7 @@ export default function App() {
         }
       />
       <Toastable
+        offset={100}
         containerStyle={{ marginHorizontal: 20 }}
         alwaysVisible
         animationInTiming={2000}
