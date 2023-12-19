@@ -33,5 +33,12 @@ export const processNextToastable = () => {
  * @param item ToastableBodyParams
  * */
 export const showToastable = (item: ToastableBodyParams) => enqueue(item);
+/**
+ * Hide the current toastable
+ *
+ */
+export const hideToastable = () => {
+  toastableRef.current?.hideToastable();
+};
 
 export const toastableRef = createRef<ToastableRef>();
