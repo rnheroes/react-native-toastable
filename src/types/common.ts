@@ -103,7 +103,7 @@ export type ToastableBodyParams = {
   position?: 'top' | 'bottom' | 'center';
   /**
    * Toast container offset
-   * @default 0
+   * @default 56
    * */
   offset?: number;
 };
@@ -136,9 +136,9 @@ export type ToastableProps = Omit<
   containerStyle?: ViewProps['style'];
   /**
    * Toast container offset
-   * @default 0
+   * @default 56
    * */
-  offset: number;
+  offset?: number;
 };
 
 export type ToastableRef = {

@@ -81,7 +81,7 @@ Inherit all other props from `ToastableBodyParams` interface. Except `background
 | onToastableHide     | `Func`           | Callback when toast is dismissed                                                                        | `undefined`                                                       |
 | containerStyle      | `ViewProps['style']`   | Container style for toast container                                                                     | `undefined`                                                       |
 position | `'top' \| 'bottom'\| 'center'` | Toast position. | `'top'` |
-offset | `number` | Toast offset. | `0` |
+offset | `number` | Toast offset. | `56` |
 
 ## ToastableBodyParams
 
@@ -103,7 +103,7 @@ titleColor | `ColorValue` | Custom title color, if this is set. | `'#FFFFFF'` |
 titleStyle | `TextStyle` | Custom title style. | `undefined` |
 messageStyle | `TextStyle` | Custom message style. | `undefined` |
 position | `'top' \| 'bottom'\| 'center'` | Toast position. | `'top'` |
-offset | `number` | Toast offset. | `0` |
+offset | `number` | Toast offset. | `56` |
 
 ## Contributing
 

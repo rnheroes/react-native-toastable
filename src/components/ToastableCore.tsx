@@ -37,7 +37,7 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
       titleStyle,
       messageStyle,
       position = 'top',
-      offset = 0,
+      offset = 56,
       ...props
     },
     ref
