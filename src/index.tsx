@@ -1,5 +1,5 @@
 import { Toastable, ToastableBody } from './components';
-import { showToastable } from './utils';
+import { showToastable, hideToastable } from './utils';
 import type {
   ToastableBodyParams,
   ToastableMessageStatus,
@@ -20,4 +20,5 @@ export {
   StatusMap,
   ToastableBodyParams,
   TOASTABLE_STATUS_MAP,
+  hideToastable,
 };

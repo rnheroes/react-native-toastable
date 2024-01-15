@@ -30,11 +30,12 @@ npm install react-native-toastable
 ```
 
 ## Usage
-Place `Toastable` component at the root of your app, and import `showToastable` function anywhere in your app to show.
+Place `Toastable` component at the root of your app, and import `showToastable` function anywhere in your app to show or `hideToastable` to hide toast.
 
 *All examples below assume that you have placed `Toastable` component at the root of your app and imported necessary components and functions.*
 
 ```js
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toastable from 'react-native-toastable';
 
@@ -58,6 +59,8 @@ export default function RootNavigation() {
     );
 }
 
+import { View, Button } from 'react-native';
+import { hideToastable, showToastable } from 'react-native-toastable';
 
 export default function HomeScreen() {
     return (
@@ -65,6 +68,10 @@ export default function HomeScreen() {
             <Button
                 title="Show Toastable"
                 onPress={() => showToastable({ message: 'React Native Heroes is awesome! 🚀', status:'success' })}
+            />
+            <Button
+                title="Hide Toastable"
+                onPress={() => hideToastable()}
             />
         </View>
     );
