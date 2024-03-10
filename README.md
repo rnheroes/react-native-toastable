@@ -32,12 +32,20 @@ npm install react-native-toastable
 ## Usage
 Place `Toastable` component at the root of your app, and import `showToastable` function anywhere in your app to show or `hideToastable` to hide toast.
 
-*All examples below assume that you have placed `Toastable` component at the root of your app and imported necessary components and functions.*
+Note: **If you need to use top inset of the device, Toastable must be child of `SafeAreaProvider`, otherwise you can use any value for `offset` prop, default is `56`.**
 
 ```js
 import { View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import Toastable from 'react-native-toastable';
+
+export default function App() {
+    return (
+        <SafeAreaProvider>
+            <RootNavigation />
+        </SafeAreaProvider>
+    );
+}
 
 export default function RootNavigation() {
     const { top } = useSafeAreaInsets();
@@ -53,7 +61,6 @@ export default function RootNavigation() {
                     info: 'blue'
                 }}
                 offset={top}
-                position="top"
             />
         </View>
     );
@@ -87,7 +94,7 @@ Inherit all other props from `ToastableBodyParams` interface. Except `background
 | statusMap           | `StatusMap`            | Status map, used to determine background color based on status                                         | `success: '#00BFA6', danger: '#FF5252', warning: '#FFD600', info: '#2962FF'` |
 | onToastableHide     | `Func`           | Callback when toast is dismissed                                                                        | `undefined`                                                       |
 | containerStyle      | `ViewProps['style']`   | Container style for toast container                                                                     | `undefined`                                                       |
-position | `'top' \| 'bottom'\| 'center'` | Toast position. | `'top'` |
+position | `'top' \| 'center'` | Toast position. | `'top'` |
 offset | `number` | Toast offset. | `56` |
 
 ## ToastableBodyParams
