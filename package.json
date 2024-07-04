@@ -1,6 +1,6 @@
 {
   "name": "react-native-toastable",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "🍞 Blazingly fast and fully customizable Toaster component for React Native",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
