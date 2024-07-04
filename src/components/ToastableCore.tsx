@@ -114,6 +114,7 @@ export const ToastableCore = forwardRef<ToastableRef, ToastableProps>(
         }}
         onToasterHide={() => {
           props.onToastableHide?.();
+          data?.onToastableHide?.();
         }}
       >
         <ToastableBody

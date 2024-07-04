@@ -106,6 +106,11 @@ export type ToastableBodyParams = {
    * @default 56
    * */
   offset?: number;
+  /**
+   * Callback when toast is dismissed, this will be called when toast is swiped out or duration is reached
+   * @default undefined
+   * */
+  onToastableHide?: () => void;
 };
 
 export type SwipeDirection = 'up' | 'left' | 'right' | 'down';
@@ -124,11 +129,7 @@ export type ToastableProps = Omit<
    * info: '#2962FF',
    * */
   statusMap?: StatusMap;
-  /**
-   * Callback when toast is dismissed, this will be called when toast is swiped out or duration is reached
-   * @default undefined
-   * */
-  onToastableHide?: () => void;
+
   /**
    * Container style for toast container
    * @default undefined
