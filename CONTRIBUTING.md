@@ -16,6 +16,12 @@ yarn
 
 While developing, you can run the [example app](/example/) to test your changes. Any changes you make in your library's JavaScript code will be reflected in the example app without a rebuild. If you change any native code, then you'll need to rebuild the example app.
 
+To boostrap the example app (run before other commands):
+
+```sh
+yarn bootstrap
+```
+
 To start the packager:
 
 ```sh
@@ -58,7 +64,6 @@ Remember to add tests for your change if possible. Run the unit tests by:
 ```sh
 yarn test
 ```
-
 
 ### Commit message convention
 
