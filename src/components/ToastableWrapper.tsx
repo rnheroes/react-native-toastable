@@ -19,20 +19,6 @@ import type {
 } from '../types';
 import { useConstructor } from '../hooks';
 
-const defaultProps: ToastableWrapperProps = {
-  animationInTiming: 600,
-  animationOutTiming: 600,
-  useNativeDriver: false,
-  isVisible: false,
-  panResponderThreshold: 4,
-  swipeThreshold: 100,
-  onToasterHide: () => null,
-  onToasterWillHide: () => null,
-  swipeDirection: ['right', 'left', 'up'],
-  onSwipeComplete: () => null,
-  onSwipeStart: () => null,
-};
-
 type ToastableWrapperProps = {
   animationInTiming: number;
   animationOutTiming: number;
@@ -236,11 +222,21 @@ const ANIMATION_MAP: Record<SwipeDirection, AnimatableViewAnimation> = {
 };
 
 export const ToastableWrapper = ({
+  animationInTiming = 600,
+  animationOutTiming = 600,
+  isVisible = false,
+  panResponderThreshold = 4,
+  swipeThreshold = 100,
+  onToasterHide = () => null,
+  onToasterWillHide = () => null,
+  swipeDirection = ['right', 'left', 'up'],
+  onSwipeComplete = () => null,
+  onSwipeStart = () => null,
   ...props
 }: PropsWithChildren<ToastableWrapperProps>) => {
-  const isSwipeable = !!props.swipeDirection;
+  const isSwipeable = !!swipeDirection;
 
-  const [isVisible, setIsVisible] = useState(props.isVisible);
+  const [isShown, setIsShown] = useState(isVisible);
   const pan = useRef(new Animated.ValueXY()).current;
   const contentRef = useRef<AnimatableViewRef>(null);
 
@@ -264,7 +260,7 @@ export const ToastableWrapper = ({
     if (interactionHandle == null) {
       interactionHandle = InteractionManager.createInteractionHandle();
     }
-    content.animate('slideInDown', props.animationInTiming).then(() => {
+    content.animate('slideInDown', animationInTiming).then(() => {
       isTransitioning = false;
 
       if (interactionHandle) {
@@ -272,7 +268,7 @@ export const ToastableWrapper = ({
         interactionHandle = null;
       }
 
-      if (!props.isVisible) {
+      if (!isVisible) {
         close();
       }
     });
@@ -291,14 +287,14 @@ export const ToastableWrapper = ({
       return;
     }
 
-    props.onToasterWillHide?.();
+    onToasterWillHide?.();
 
     if (interactionHandle == null) {
       interactionHandle = InteractionManager.createInteractionHandle();
     }
 
     content
-      .animate(ANIMATION_MAP[currentSwipingDirection], props.animationOutTiming)
+      .animate(ANIMATION_MAP[currentSwipingDirection], animationOutTiming)
       .then(() => {
         isTransitioning = false;
 
@@ -307,9 +303,9 @@ export const ToastableWrapper = ({
           interactionHandle = null;
         }
 
-        if (!props.isVisible) {
-          setIsVisible(false);
-          props.onToasterHide();
+        if (!isVisible) {
+          setIsShown(false);
+          onToasterHide();
           return;
         }
 
@@ -319,21 +315,21 @@ export const ToastableWrapper = ({
 
   useConstructor(() => {
     buildPanResponder({
-      onSwipeComplete: props.onSwipeComplete,
-      onSwipeStart: props.onSwipeStart,
+      onSwipeComplete: onSwipeComplete,
+      onSwipeStart: onSwipeStart,
       pan,
-      panResponderThreshold: props.panResponderThreshold,
-      swipeDirection: props.swipeDirection,
-      swipeThreshold: props.swipeThreshold,
+      panResponderThreshold: panResponderThreshold,
+      swipeDirection: swipeDirection,
+      swipeThreshold: swipeThreshold,
     });
   });
 
   useEffect(() => {
-    if (isVisible) {
+    if (isShown) {
       open();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible]);
+  }, [isShown]);
 
   useEffect(() => {
     return () => {
@@ -349,12 +345,16 @@ export const ToastableWrapper = ({
   useEffect(() => {
     const wasVisible = prevIsVisibleRef.current;
 
-    if (props.isVisible !== wasVisible) {
-      props.isVisible ? open() : close();
-      prevIsVisibleRef.current = props.isVisible;
+    if (isVisible !== wasVisible) {
+      if (isVisible) {
+        open();
+      } else {
+        close();
+      }
+      prevIsVisibleRef.current = isVisible;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.isVisible]);
+  }, [isVisible]);
 
   // FIXME: this should be placed in the render method, but it causes a bug
   // if (!isVisible) {
@@ -374,8 +374,6 @@ export const ToastableWrapper = ({
     </View>
   );
 };
-
-ToastableWrapper.defaultProps = defaultProps;
 
 const styles = StyleSheet.create({
   container: {
