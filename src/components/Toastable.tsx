@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 
 import {
   TOASTABLE_ANIMATION_DURATION,
@@ -152,9 +152,20 @@ export const Toastable = ({
 };
 Toastable.displayName = 'Toastable';
 
+const WINDOW = Dimensions.get('window');
+
 const styles = StyleSheet.create({
+  // Explicit window dimensions instead of absoluteFillObject. Under Fabric,
+  // absoluteFillObject (position:absolute + left/right/top/bottom:0) is
+  // sometimes treated as auto-sized by Yoga when nested inside a flex parent
+  // with alignItems, leaving the host effectively 0×0. That made
+  // top:offset on the ToastItem fall through to an unexpected screen Y.
   host: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: WINDOW.width,
+    height: WINDOW.height,
     zIndex: 1,
   },
 });

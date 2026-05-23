@@ -329,7 +329,11 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     return (
       <Animated.View
         onLayout={onLayout}
-        pointerEvents="box-none"
+        // No pointerEvents="box-none" here — the toast itself needs to catch
+        // swipe gestures. The host above uses box-none so taps off the toast
+        // still reach the UI beneath. onMoveShouldSetPanResponder only takes
+        // over on movement, so plain taps still propagate to the Pressable
+        // inside ToastableBody / renderContent.
         style={[
           styles.item,
           positionStyle(itemPosition, itemOffset),
