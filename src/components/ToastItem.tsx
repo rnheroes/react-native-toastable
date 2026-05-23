@@ -208,8 +208,16 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
 
     useImperativeHandle(ref, () => ({ close: () => close('up') }), [close]);
 
-    // Entry — animate from off-screen to restY. Run exactly once.
+    // Single source of truth for translateY: any time restY changes, animate
+    // there. First run uses the configured animationType (entry); subsequent
+    // runs always spring (cheap stack adjustment). Whichever settle finishes
+    // last sets `hasEntered` and schedules the auto-hide — so if a new
+    // sibling promotes this toast to a different stack slot mid-entry, the
+    // interrupting spring still arms the timer.
+    const isFirstRunRef = useRef(true);
     useEffect(() => {
+      if (stateRef.current.isClosing) return;
+
       const onSettled = ({ finished }: { finished: boolean }) => {
         if (!finished) return;
         if (stateRef.current.hasEntered) return;
@@ -217,37 +225,32 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
         scheduleAutoHide();
       };
 
-      const target = stateRef.current.restY;
+      const isFirstRun = isFirstRunRef.current;
+      isFirstRunRef.current = false;
 
-      if (itemAnimationType === 'spring') {
-        Animated.spring(translateY, {
-          ...TOASTABLE_SPRING_CONFIG,
-          toValue: target,
-        }).start(onSettled);
-      } else {
+      if (isFirstRun && itemAnimationType === 'timing') {
         Animated.timing(translateY, {
-          toValue: target,
+          toValue: restY,
           duration: itemAnimationIn,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start(onSettled);
+      } else {
+        Animated.spring(translateY, {
+          ...TOASTABLE_SPRING_CONFIG,
+          toValue: restY,
+        }).start(onSettled);
       }
+    }, [
+      restY,
+      translateY,
+      scheduleAutoHide,
+      itemAnimationType,
+      itemAnimationIn,
+    ]);
 
-      return clearTimer;
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // Stack re-flow: when this toast's resting position changes (a sibling
-    // hid or the measured height settled), spring to the new restY. Skipped
-    // during initial entry (entry handles that) and during close.
-    useEffect(() => {
-      if (!stateRef.current.hasEntered) return;
-      if (stateRef.current.isClosing) return;
-      Animated.spring(translateY, {
-        ...TOASTABLE_SPRING_CONFIG,
-        toValue: restY,
-      }).start();
-    }, [restY, translateY]);
+    // Cleanup any pending timer on unmount.
+    useEffect(() => clearTimer, [clearTimer]);
 
     const panResponder = useMemo(
       () =>
