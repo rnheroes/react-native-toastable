@@ -227,12 +227,16 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     }, []);
 
     // Re-flow when stack index changes (e.g. earlier toast hid).
+    // Sign is baked into the target so we can keep the transform pipeline
+    // 100% native-driven (no JS-side Animated.Value mixed in — that combo
+    // silently breaks transforms under Fabric).
     useEffect(() => {
+      const sign = itemPosition === 'bottom' ? -1 : 1;
       Animated.spring(stackOffset, {
         ...TOASTABLE_SPRING_CONFIG,
-        toValue: stackIndex * (contentHeight + stackGap),
+        toValue: sign * stackIndex * (contentHeight + stackGap),
       }).start();
-    }, [stackIndex, contentHeight, stackGap, stackOffset]);
+    }, [itemPosition, stackIndex, contentHeight, stackGap, stackOffset]);
 
     const panResponder = useMemo(
       () =>
@@ -310,15 +314,6 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       setContentHeight((prev) => (prev === h ? prev : h));
     }, []);
 
-    // Top/center: stack downward. Bottom: stack upward.
-    const composedTranslateY = useMemo(() => {
-      const sign = itemPosition === 'bottom' ? -1 : 1;
-      return Animated.add(
-        translateY,
-        Animated.multiply(stackOffset, new Animated.Value(sign))
-      );
-    }, [itemPosition, translateY, stackOffset]);
-
     return (
       <Animated.View
         onLayout={onLayout}
@@ -327,7 +322,15 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           styles.item,
           positionStyle(itemPosition, itemOffset),
           {
-            transform: [{ translateX }, { translateY: composedTranslateY }],
+            // Two separate translateY entries — RN sums them and each one
+            // stays a plain native-driven Animated.Value. Avoids Animated.add
+            // / Animated.multiply combinators, which can silently fail on the
+            // new architecture (Fabric) when any operand is JS-driven.
+            transform: [
+              { translateX },
+              { translateY: translateY },
+              { translateY: stackOffset },
+            ],
           },
         ]}
         {...panResponder.panHandlers}
