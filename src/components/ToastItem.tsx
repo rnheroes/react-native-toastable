@@ -5,7 +5,6 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import {
   Animated,
@@ -14,7 +13,7 @@ import {
   PanResponder,
   StyleSheet,
 } from 'react-native';
-import type { LayoutChangeEvent, PanResponderGestureState } from 'react-native';
+import type { PanResponderGestureState } from 'react-native';
 
 import {
   TOASTABLE_PAN_RESPONDER_THRESHOLD,
@@ -31,6 +30,10 @@ import type {
 import { ToastableBody } from './ToastableBody';
 
 const SCREEN = Dimensions.get('window');
+
+// 5% smaller per stack level. Subtle depth so the deck reads as 3D.
+const SCALE_STEP = 0.05;
+const MIN_SCALE = 0.85;
 
 export type ToastItemHandle = {
   close: () => void;
@@ -118,15 +121,20 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     // Off-screen entry/exit edge.
     const offScreenY = stackSign === 1 ? -SCREEN.height : SCREEN.height;
 
-    const [contentHeight, setContentHeight] = useState(0);
-    // Resting Y for this toast — pure JS number, no Animated combinators.
-    // For stackIndex 0 (newest / queue mode) this is always 0.
-    const restY = stackSign * stackIndex * (contentHeight + stackGap);
+    // Deck-of-cards layout: each older card peeks out by `stackGap` below the
+    // newer one. No content-height math — that produced a vertical fan
+    // instead of a stacked deck.
+    const restY = stackSign * stackIndex * stackGap;
+    const restScale = Math.max(MIN_SCALE, 1 - stackIndex * SCALE_STEP);
 
     // Single Animated.Value per axis. Initial Y is off-screen so the entry
     // animation can spring up to restY.
     const translateX = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(offScreenY)).current;
+    const scale = useRef(new Animated.Value(1)).current;
+    // Opacity drops to 0 on close so the exit animation reads even when
+    // newer toasts are layered above this one in z-order.
+    const opacity = useRef(new Animated.Value(1)).current;
 
     // Refs for values used by stable callbacks (PanResponder, close, etc.).
     const stateRef = useRef({
@@ -176,25 +184,31 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           if (finished) finishHide();
         };
 
-        if (direction === 'left' || direction === 'right') {
-          const toX = direction === 'left' ? -SCREEN.width : SCREEN.width;
-          Animated.timing(translateX, {
-            toValue: toX,
-            duration: outDuration,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start(onSettled);
-        } else {
-          const toY = direction === 'down' ? SCREEN.height : -SCREEN.height;
-          Animated.timing(translateY, {
-            toValue: toY,
-            duration: outDuration,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start(onSettled);
-        }
+        const axisAnimation =
+          direction === 'left' || direction === 'right'
+            ? Animated.timing(translateX, {
+                toValue: direction === 'left' ? -SCREEN.width : SCREEN.width,
+                duration: outDuration,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+              })
+            : Animated.timing(translateY, {
+                toValue: direction === 'down' ? SCREEN.height : -SCREEN.height,
+                duration: outDuration,
+                easing: Easing.out(Easing.cubic),
+                useNativeDriver: true,
+              });
+
+        const fade = Animated.timing(opacity, {
+          toValue: 0,
+          duration: outDuration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        });
+
+        Animated.parallel([axisAnimation, fade]).start(onSettled);
       },
-      [clearTimer, finishHide, translateX, translateY]
+      [clearTimer, finishHide, opacity, translateX, translateY]
     );
 
     const scheduleAutoHide = useCallback(() => {
@@ -208,12 +222,9 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
 
     useImperativeHandle(ref, () => ({ close: () => close('up') }), [close]);
 
-    // Single source of truth for translateY: any time restY changes, animate
-    // there. First run uses the configured animationType (entry); subsequent
-    // runs always spring (cheap stack adjustment). Whichever settle finishes
-    // last sets `hasEntered` and schedules the auto-hide — so if a new
-    // sibling promotes this toast to a different stack slot mid-entry, the
-    // interrupting spring still arms the timer.
+    // translateY driver: entry on first run (respecting animationType),
+    // spring on subsequent restY changes (stack reflow). Whichever settle
+    // finishes last arms the auto-hide timer.
     const isFirstRunRef = useRef(true);
     useEffect(() => {
       if (stateRef.current.isClosing) return;
@@ -248,6 +259,17 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       itemAnimationType,
       itemAnimationIn,
     ]);
+
+    // Scale driver: only runs on restScale changes (i.e. stack promotions).
+    // Skipped while closing so the fade-out isn't tugged sideways by a
+    // stack reflow that fires the moment a sibling unmounts.
+    useEffect(() => {
+      if (stateRef.current.isClosing) return;
+      Animated.spring(scale, {
+        ...TOASTABLE_SPRING_CONFIG,
+        toValue: restScale,
+      }).start();
+    }, [restScale, scale]);
 
     // Cleanup any pending timer on unmount.
     useEffect(() => clearTimer, [clearTimer]);
@@ -324,27 +346,14 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       data.onPress?.();
     }, [close, data]);
 
-    const onLayout = useCallback((e: LayoutChangeEvent) => {
-      const h = e.nativeEvent.layout.height;
-      setContentHeight((prev) => (prev === h ? prev : h));
-    }, []);
-
     return (
       <Animated.View
-        onLayout={onLayout}
-        // No pointerEvents="box-none" here — the toast itself needs to catch
-        // swipe gestures. The host above uses box-none so taps off the toast
-        // still reach the UI beneath. onMoveShouldSetPanResponder only takes
-        // over on movement, so plain taps still propagate to the Pressable
-        // inside ToastableBody / renderContent.
         style={[
           styles.item,
           positionStyle(itemPosition, itemOffset),
           {
-            // One translateX, one translateY — no combinator nodes, no
-            // duplicate transform keys. Both are plain native-driven
-            // Animated.Values, which Fabric handles reliably.
-            transform: [{ translateX }, { translateY }],
+            opacity,
+            transform: [{ translateX }, { translateY }, { scale }],
           },
         ]}
         {...panResponder.panHandlers}
