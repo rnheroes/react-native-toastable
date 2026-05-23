@@ -2,42 +2,20 @@ import { createRef } from 'react';
 
 import type { ToastableBodyParams, ToastableRef } from '../types';
 
-const toastableQueue: Array<ToastableBodyParams> = [];
-let isToastableVisible = false;
+export const toastableRef = createRef<NonNullable<ToastableRef>>();
 
-const enqueue = (toastableBody: ToastableBodyParams) => {
-  toastableQueue.push(toastableBody);
-
-  if (!isToastableVisible) {
-    processNextToastable();
-  }
-};
-
-const dequeue = () => toastableQueue.shift() ?? null;
-
-export const processNextToastable = () => {
-  const toastableBody = dequeue();
-
-  if (!toastableBody) {
-    isToastableVisible = false;
-    return;
-  }
-
-  isToastableVisible = true;
-  toastableRef.current?.showToastable(toastableBody);
+/**
+ * Show a toast. In `displayMode="queue"` (default) the toast is queued if one
+ * is already visible; in `"stack"` it's added to the visible stack.
+ */
+export const showToastable = (item: ToastableBodyParams) => {
+  toastableRef.current?.showToastable(item);
 };
 
 /**
- * Show toastable with given params and enqueue it if there is already a toastable visible on screen
- * @param item ToastableBodyParams
- * */
-export const showToastable = (item: ToastableBodyParams) => enqueue(item);
-/**
- * Hide the current toastable
- *
+ * Hide the currently visible toast. In stack mode this hides the most
+ * recently shown toast.
  */
 export const hideToastable = () => {
   toastableRef.current?.hideToastable();
 };
-
-export const toastableRef = createRef<ToastableRef>();

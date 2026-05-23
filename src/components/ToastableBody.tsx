@@ -19,35 +19,26 @@ export const ToastableBody = ({
   messageStyle,
 }: ToastableBodyProps) => {
   if (typeof renderContent === 'function') {
-    return (
-      <>
-        {renderContent({
-          message,
-          status,
-          title,
-          onPress,
-        })}
-      </>
-    );
+    return <>{renderContent({ message, status, title, onPress })}</>;
   }
 
   return (
     <Pressable
       onPress={onPress}
       style={[
-        { backgroundColor: backgroundColor ?? statusMap[status] },
         styles.content,
+        { backgroundColor: backgroundColor ?? statusMap[status] },
         contentStyle,
       ]}
     >
-      {title && (
-        <Text style={[{ color: titleColor }, styles.title, titleStyle]}>
+      {title ? (
+        <Text style={[styles.title, { color: titleColor }, titleStyle]}>
           {title}
         </Text>
-      )}
-      {message && (
+      ) : null}
+      {message ? (
         <Text style={[{ color: messageColor }, messageStyle]}>{message}</Text>
-      )}
+      ) : null}
     </Pressable>
   );
 };
@@ -59,5 +50,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
+    fontWeight: '600',
   },
 });

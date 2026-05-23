@@ -1,24 +1,31 @@
 import { Toastable, ToastableBody } from './components';
 import { showToastable, hideToastable } from './utils';
-import type {
-  ToastableBodyParams,
-  ToastableMessageStatus,
-  ToastableProps,
-  ToastableBodyProps,
-  StatusMap,
-} from './types';
 import { TOASTABLE_STATUS_MAP } from './constants';
+
+import type {
+  ToastableAnimationType,
+  ToastableBodyParams,
+  ToastableBodyProps,
+  ToastableDisplayMode,
+  ToastableMessageStatus,
+  ToastablePosition,
+  ToastableProps,
+  StatusMap,
+  SwipeDirection,
+} from './types';
 
 export default Toastable;
 
-export {
-  ToastableBody,
-  showToastable,
-  ToastableMessageStatus,
+export { ToastableBody, showToastable, hideToastable, TOASTABLE_STATUS_MAP };
+
+export type {
   ToastableProps,
   ToastableBodyProps,
-  StatusMap,
   ToastableBodyParams,
-  TOASTABLE_STATUS_MAP,
-  hideToastable,
+  ToastableMessageStatus,
+  ToastableAnimationType,
+  ToastableDisplayMode,
+  ToastablePosition,
+  StatusMap,
+  SwipeDirection,
 };

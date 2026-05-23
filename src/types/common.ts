@@ -2,152 +2,93 @@ import type { ColorValue, TextProps, ViewProps } from 'react-native';
 
 export type ToastableMessageStatus = 'success' | 'danger' | 'warning' | 'info';
 
-// TODO: Improve type, add dynamic type
+export type SwipeDirection = 'up' | 'down' | 'left' | 'right';
+
+export type ToastablePosition = 'top' | 'bottom' | 'center';
+
+export type ToastableAnimationType = 'spring' | 'timing';
+
+export type ToastableDisplayMode = 'queue' | 'stack';
+
+export type StatusMap = Record<ToastableMessageStatus, ColorValue>;
+
 export type ToastableBodyParams = {
   /**
-   * Render custom content, if this is set, message will be ignored
-   * @param props - ToastableBodyParams
-   * @returns React.ReactNode
-   * @example
-   * ```tsx
-   * renderContent={(props) => (
-   *  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor:TOASTABLE_STATUS_MAP[props.status] }}>
-   *   <Text>{props.title}</Text>
-   *  <Text>{props.message}</Text>
-   * </View>
-   * )}
-   * ```
+   * Render custom content. If set, `message`/`title` are passed through but the
+   * default body layout is replaced entirely.
    */
   renderContent?: (
     props: Pick<ToastableBodyParams, 'message' | 'title' | 'status' | 'onPress'>
   ) => React.ReactNode;
-  /**
-   * Custom content style
-   * @default undefined
-   */
+  /** Custom content style for the default body. */
   contentStyle?: ViewProps['style'];
-  /**
-   * Custom background color, if this is set, status will be ignored
-   * @default undefined
-   */
+  /** Override background color. Takes precedence over `status`. */
   backgroundColor?: ColorValue;
-  /**
-   * Message status, this will be used to determine background color based on statusMap prop
-   * @default 'info'
-   */
+  /** Status used to pick a background color from `statusMap`. @default 'info' */
   status?: ToastableMessageStatus;
-  /**
-   * Message to be displayed
-   * @default ''
-   */
+  /** Main message text. */
   message: TextProps['children'];
-  /**
-   * Title to be displayed
-   * @default ''
-   * */
+  /** Optional title text above the message. */
   title?: TextProps['children'];
-  /**
-   * On press callback
-   * @default undefined
-   * */
+  /** Press handler for the default body. */
   onPress?: () => void;
-  /**
-   * Duration in milliseconds
-   * @default 3000
-   * */
+  /** Auto-hide duration in ms. Timer starts after entry animation. @default 2000 */
   duration?: number;
-  /**
-   * Make toast always visible, even when there is a new toast
-   * @default false
-   * */
+  /** Keep toast visible until manually hidden (ignores `duration`). @default false */
   alwaysVisible?: boolean;
-  /**
-   * Animation timing for toast out milliseconds
-   * @default 300
-   * */
-  animationOutTiming?: number;
-  /**
-   * Animation timing for toast in milliseconds
-   * @default 300
-   * */
+  /** Entry animation duration in ms (only when `animationType === 'timing'`). @default 300 */
   animationInTiming?: number;
-  /**
-   * Swipe direction to dismiss toast
-   * @default 'up'
-   * */
-  swipeDirection?: 'up' | 'left' | 'right' | Array<'up' | 'left' | 'right'>;
-  /**
-   * Custom message color
-   * @default #FFFFFF
-   * */
+  /** Exit animation duration in ms (only when `animationType === 'timing'`). @default 300 */
+  animationOutTiming?: number;
+  /** Allowed swipe-to-dismiss directions. @default ['up', 'left', 'right'] */
+  swipeDirection?: SwipeDirection | SwipeDirection[];
+  /** Message text color. @default '#FFFFFF' */
   messageColor?: ColorValue;
-  /**
-   * Custom title color
-   * @default #FFFFFF
-   * */
+  /** Title text color. @default '#FFFFFF' */
   titleColor?: ColorValue;
-  /**
-   * Custom title style
-   * @default undefined
-   * */
+  /** Title text style. */
   titleStyle?: TextProps['style'];
-  /**
-   * Custom message style
-   * @default undefined
-   * */
+  /** Message text style. */
   messageStyle?: TextProps['style'];
-  /**
-   * Toast container position
-   * @default 'top'
-   * */
-  position?: 'top' | 'bottom' | 'center';
-  /**
-   * Toast container offset
-   * @default 56
-   * */
+  /** Toast position on screen. @default 'top' */
+  position?: ToastablePosition;
+  /** Distance from the edge (top/bottom) in px. @default 56 */
   offset?: number;
-  /**
-   * Callback when toast is dismissed, this will be called when toast is swiped out or duration is reached
-   * @default undefined
-   * */
+  /** Animation curve. @default 'spring' */
+  animationType?: ToastableAnimationType;
+  /** Called once the toast is fully hidden (after swipe, timeout, or manual hide). */
   onToastableHide?: () => void;
 };
 
-export type SwipeDirection = 'up' | 'left' | 'right' | 'down';
-
-// TODO: Support animationIn, animationOut props
 export type ToastableProps = Omit<
   ToastableBodyParams,
   'backgroundColor' | 'status' | 'message' | 'onPress' | 'contentStyle'
 > & {
   /**
-   * Status map, this will be used to determine background color based on status prop
-   * @default
-   * success: '#00BFA6',
-   * danger: '#FF5252',
-   * warning: '#FFD600',
-   * info: '#2962FF',
-   * */
+   * Color map for status backgrounds.
+   * @default { success: '#00BFA6', danger: '#FF5252', warning: '#FFD600', info: '#2962FF' }
+   */
   statusMap?: StatusMap;
-
-  /**
-   * Container style for toast container
-   * @default undefined
-   * */
+  /** Style for the toast container (positioning, margins). */
   containerStyle?: ViewProps['style'];
-  /**
-   * Toast container offset
-   * @default 56
-   * */
+  /** Distance from the edge in px. @default 56 */
   offset?: number;
+  /**
+   * `'queue'` shows one toast at a time and queues the rest; `'stack'` shows
+   * multiple toasts piled together with `stackGap` between them.
+   * @default 'queue'
+   */
+  displayMode?: ToastableDisplayMode;
+  /** Max visible toasts in `'stack'` mode. Older toasts are dropped. @default 3 */
+  maxStack?: number;
+  /** Vertical gap between stacked toasts in px. @default 8 */
+  stackGap?: number;
 };
 
 export type ToastableRef = {
   showToastable: (param: ToastableBodyParams) => void;
   hideToastable: () => void;
 } | null;
-
-export type StatusMap = Record<ToastableMessageStatus, ColorValue>;
 
 export type ToastableBodyProps = Pick<
   ToastableBodyParams,
