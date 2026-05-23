@@ -5,6 +5,7 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import {
   Animated,
@@ -136,6 +137,12 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     // newer toasts are layered above this one in z-order.
     const opacity = useRef(new Animated.Value(1)).current;
 
+    // Tracked as state (not just a ref) so the View re-renders with the
+    // higher zIndex when the toast starts closing — that brings the
+    // closing card to the front of the deck so its slide-up + fade is
+    // visible instead of being obscured by newer cards above it.
+    const [isExiting, setIsExiting] = useState(false);
+
     // Refs for values used by stable callbacks (PanResponder, close, etc.).
     const stateRef = useRef({
       isClosing: false,
@@ -177,6 +184,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       (direction: SwipeDirection = 'up') => {
         if (stateRef.current.isClosing) return;
         stateRef.current.isClosing = true;
+        setIsExiting(true);
         clearTimer();
 
         const outDuration = stateRef.current.animationOut;
@@ -351,6 +359,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
         style={[
           styles.item,
           positionStyle(itemPosition, itemOffset),
+          isExiting ? styles.exiting : null,
           {
             opacity,
             transform: [{ translateX }, { translateY }, { scale }],
@@ -385,6 +394,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     marginHorizontal: 16,
+  },
+  exiting: {
+    // Lifts the closing toast above its siblings so the slide-up + fade
+    // exit isn't obscured by newer cards stacked on top in z-order.
+    zIndex: 1000,
+    elevation: 1000,
   },
 });
 

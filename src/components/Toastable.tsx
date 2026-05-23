@@ -54,11 +54,15 @@ export const Toastable = ({
           return prev;
         }
         const next = [...prev, entry];
-        if (next.length > maxStack) {
-          // Drop the oldest by asking it to close. It'll fall out of `active`
-          // through its own onHide callback.
-          const oldest = next[0];
-          if (oldest) itemRefs.current.get(oldest.__id)?.close();
+        // Close every overflow toast, not just the first. If the user
+        // bursts a few shows in under one exit-animation, the oldest item
+        // is already closing — calling .close() on it is a no-op, so we
+        // need to keep walking forward and close the next-oldest items
+        // until we're back at maxStack.
+        const overflow = next.length - maxStack;
+        for (let i = 0; i < overflow; i++) {
+          const candidate = next[i];
+          if (candidate) itemRefs.current.get(candidate.__id)?.close();
         }
         return next;
       });
