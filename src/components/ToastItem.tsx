@@ -113,24 +113,31 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     const itemTitleStyle = data.titleStyle ?? titleStyle;
     const itemMessageStyle = data.messageStyle ?? messageStyle;
 
-    const offScreenY =
-      itemPosition === 'bottom' ? SCREEN.height : -SCREEN.height;
-
-    const translateX = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(offScreenY)).current;
-    const stackOffset = useRef(new Animated.Value(0)).current;
+    // Stack direction: top stacks downward (+), bottom stacks upward (-).
+    const stackSign = itemPosition === 'bottom' ? -1 : 1;
+    // Off-screen entry/exit edge.
+    const offScreenY = stackSign === 1 ? -SCREEN.height : SCREEN.height;
 
     const [contentHeight, setContentHeight] = useState(0);
+    // Resting Y for this toast — pure JS number, no Animated combinators.
+    // For stackIndex 0 (newest / queue mode) this is always 0.
+    const restY = stackSign * stackIndex * (contentHeight + stackGap);
 
-    // All mutable per-render values flow through a single ref so the callbacks
-    // below can stay stable and the PanResponder isn't rebuilt every render.
+    // Single Animated.Value per axis. Initial Y is off-screen so the entry
+    // animation can spring up to restY.
+    const translateX = useRef(new Animated.Value(0)).current;
+    const translateY = useRef(new Animated.Value(offScreenY)).current;
+
+    // Refs for values used by stable callbacks (PanResponder, close, etc.).
     const stateRef = useRef({
       isClosing: false,
       hideCalled: false,
+      hasEntered: false,
       animationOut: itemAnimationOut,
       duration: itemDuration,
       alwaysVisible: itemAlwaysVisible,
       swipeDir: itemSwipeDir,
+      restY,
       onToastableHide: data.onToastableHide,
       onHide,
     });
@@ -138,6 +145,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     stateRef.current.duration = itemDuration;
     stateRef.current.alwaysVisible = itemAlwaysVisible;
     stateRef.current.swipeDir = itemSwipeDir;
+    stateRef.current.restY = restY;
     stateRef.current.onToastableHide = data.onToastableHide;
     stateRef.current.onHide = onHide;
 
@@ -163,29 +171,28 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
         stateRef.current.isClosing = true;
         clearTimer();
 
-        let toX = 0;
-        let toY = 0;
-        if (direction === 'left') toX = -SCREEN.width;
-        else if (direction === 'right') toX = SCREEN.width;
-        else if (direction === 'down') toY = SCREEN.height;
-        else toY = -SCREEN.height;
+        const outDuration = stateRef.current.animationOut;
+        const onSettled = ({ finished }: { finished: boolean }) => {
+          if (finished) finishHide();
+        };
 
-        Animated.parallel([
+        if (direction === 'left' || direction === 'right') {
+          const toX = direction === 'left' ? -SCREEN.width : SCREEN.width;
           Animated.timing(translateX, {
             toValue: toX,
-            duration: stateRef.current.animationOut,
+            duration: outDuration,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
-          }),
+          }).start(onSettled);
+        } else {
+          const toY = direction === 'down' ? SCREEN.height : -SCREEN.height;
           Animated.timing(translateY, {
             toValue: toY,
-            duration: stateRef.current.animationOut,
+            duration: outDuration,
             easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
-          }),
-        ]).start(({ finished }) => {
-          if (finished) finishHide();
-        });
+          }).start(onSettled);
+        }
       },
       [clearTimer, finishHide, translateX, translateY]
     );
@@ -201,20 +208,25 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
 
     useImperativeHandle(ref, () => ({ close: () => close('up') }), [close]);
 
-    // Entry — run exactly once on mount.
+    // Entry — animate from off-screen to restY. Run exactly once.
     useEffect(() => {
       const onSettled = ({ finished }: { finished: boolean }) => {
-        if (finished) scheduleAutoHide();
+        if (!finished) return;
+        if (stateRef.current.hasEntered) return;
+        stateRef.current.hasEntered = true;
+        scheduleAutoHide();
       };
+
+      const target = stateRef.current.restY;
 
       if (itemAnimationType === 'spring') {
         Animated.spring(translateY, {
           ...TOASTABLE_SPRING_CONFIG,
-          toValue: 0,
+          toValue: target,
         }).start(onSettled);
       } else {
         Animated.timing(translateY, {
-          toValue: 0,
+          toValue: target,
           duration: itemAnimationIn,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
@@ -222,21 +234,20 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       }
 
       return clearTimer;
-      // Entry runs once with the values present at mount time.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Re-flow when stack index changes (e.g. earlier toast hid).
-    // Sign is baked into the target so we can keep the transform pipeline
-    // 100% native-driven (no JS-side Animated.Value mixed in — that combo
-    // silently breaks transforms under Fabric).
+    // Stack re-flow: when this toast's resting position changes (a sibling
+    // hid or the measured height settled), spring to the new restY. Skipped
+    // during initial entry (entry handles that) and during close.
     useEffect(() => {
-      const sign = itemPosition === 'bottom' ? -1 : 1;
-      Animated.spring(stackOffset, {
+      if (!stateRef.current.hasEntered) return;
+      if (stateRef.current.isClosing) return;
+      Animated.spring(translateY, {
         ...TOASTABLE_SPRING_CONFIG,
-        toValue: sign * stackIndex * (contentHeight + stackGap),
+        toValue: restY,
       }).start();
-    }, [itemPosition, stackIndex, contentHeight, stackGap, stackOffset]);
+    }, [restY, translateY]);
 
     const panResponder = useMemo(
       () =>
@@ -252,7 +263,8 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
             if (dir === 'left' || dir === 'right') {
               translateX.setValue(g.dx);
             } else {
-              translateY.setValue(g.dy);
+              // Drag relative to current resting position.
+              translateY.setValue(stateRef.current.restY + g.dy);
             }
           },
           onPanResponderRelease: (_evt, g: PanResponderGestureState) => {
@@ -280,7 +292,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
               }),
               Animated.spring(translateY, {
                 ...TOASTABLE_SPRING_CONFIG,
-                toValue: 0,
+                toValue: stateRef.current.restY,
               }),
             ]).start(({ finished }) => {
               if (finished) scheduleAutoHide();
@@ -294,7 +306,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
               }),
               Animated.spring(translateY, {
                 ...TOASTABLE_SPRING_CONFIG,
-                toValue: 0,
+                toValue: stateRef.current.restY,
               }),
             ]).start(({ finished }) => {
               if (finished) scheduleAutoHide();
@@ -322,15 +334,10 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           styles.item,
           positionStyle(itemPosition, itemOffset),
           {
-            // Two separate translateY entries — RN sums them and each one
-            // stays a plain native-driven Animated.Value. Avoids Animated.add
-            // / Animated.multiply combinators, which can silently fail on the
-            // new architecture (Fabric) when any operand is JS-driven.
-            transform: [
-              { translateX },
-              { translateY: translateY },
-              { translateY: stackOffset },
-            ],
+            // One translateX, one translateY — no combinator nodes, no
+            // duplicate transform keys. Both are plain native-driven
+            // Animated.Values, which Fabric handles reliably.
+            transform: [{ translateX }, { translateY }],
           },
         ]}
         {...panResponder.panHandlers}
