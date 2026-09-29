@@ -9,6 +9,7 @@
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
 - Fully typed, using TypeScript
 - Supports swipe to dismiss multiple directions (left, right, up)
+- Pauses while a finger is on the toast, so it never leaves while being read or dragged
 - Performant, using native animations and avoiding unnecessary re-renders
 - Zero external dependencies
 - Highly customizable, allowing you to tailor it to fit your specific needs
@@ -86,6 +87,46 @@ export default function HomeScreen() {
 ```
 
 
+## Toasts and modals
+
+A React Native `Modal` draws above the rest of the app (on Android it is a separate window), so a `Toastable` at the root of the app is hidden while a modal is open. Render another `Toastable` as the last child of the modal:
+
+```tsx
+<Modal visible={visible} onRequestClose={close}>
+  <ModalContent />
+  <Toastable offset={top} />
+</Modal>
+```
+
+The most recently mounted `Toastable` shows the toasts, and toasts on screen or waiting move with it: into the modal's `Toastable` when the modal opens, and back to the root one when it closes. Calling `showToastable()` right before opening or closing a modal still shows the toast.
+
+### Above native modals on iOS
+
+On iOS, native modals (React Navigation's `modal` and `formSheet` presentations, `Modal`, pickers, share sheets) are view controllers presented above the root view, so they cover a `Toastable` at the root. `renderContainer` wraps the toast layer in whatever you pass, so you can draw it in [react-native-screens](https://github.com/software-mansion/react-native-screens)' `FullWindowOverlay`, which sits in the key window above every screen and modal. react-native-screens stays your dependency; this library does not need it.
+
+```tsx
+import { Platform } from 'react-native';
+import { FullWindowOverlay } from 'react-native-screens';
+
+<Toastable
+  offset={top}
+  renderContainer={(toasts) =>
+    Platform.OS === 'ios' ? (
+      <FullWindowOverlay unstable_accessibilityContainerViewIsModal={false}>
+        {toasts}
+      </FullWindowOverlay>
+    ) : (
+      toasts
+    )
+  }
+/>
+```
+
+- `FullWindowOverlay` only goes above the modals that are already open when it mounts. The container is rendered only while a toast is on screen and, in `'queue'` mode, mounted again for every toast, so each toast lands above the modals open at that moment. A toast that is already up when a modal opens stays under it, unless the modal has its own `Toastable` (see above).
+- `unstable_accessibilityContainerViewIsModal={false}` (react-native-screens 4.11 and later) keeps the rest of the app reachable with VoiceOver while a toast is up. Without it the overlay acts as a modal for VoiceOver and hides everything behind it.
+- Touches outside the toast pass through to the app underneath.
+- `FullWindowOverlay` is iOS only. On Android keep the plain layer and mount a `Toastable` inside each `Modal`.
+
 ## Props
 Inherit all other props from `ToastableBodyParams` interface. Except `backgroundColor`, `status`, `message`, `onPress`, `contentStyle` props.
 
@@ -96,6 +137,7 @@ Inherit all other props from `ToastableBodyParams` interface. Except `background
 | containerStyle      | `ViewProps['style']`   | Container style for toast container                                                                     | `undefined`                                                       |
 position | `'top' \| 'center'` | Toast position. | `'top'` |
 offset | `number` | Toast offset. | `56` |
+| renderContainer | `(toasts: ReactNode) => ReactNode` | Wraps the toast layer, e.g. in `FullWindowOverlay` to draw above native modals on iOS. See [Above native modals on iOS](#above-native-modals-on-ios). | `undefined` |
 
 ## ToastableBodyParams
 
@@ -118,6 +160,9 @@ titleStyle | `TextStyle` | Custom title style. | `undefined` |
 messageStyle | `TextStyle` | Custom message style. | `undefined` |
 position | `'top' \| 'bottom'\| 'center'` | Toast position. | `'top'` |
 offset | `number` | Toast offset. | `56` |
+| animationType | `'spring' \| 'timing'` | Entrance curve. `'spring'` comes in from just outside its place with a small overshoot; `'timing'` eases in over `animationInTiming`. | `'spring'` |
+| springConfig | `{ stiffness?: number; damping?: number; mass?: number }` | Entrance spring, merged over the default. Raise `damping` (e.g. `30`) for no overshoot. | `{ stiffness: 200, damping: 15, mass: 1 }` |
+| announceForAccessibility | `boolean` | Announce `title` and `message` to screen readers (VoiceOver, TalkBack) when the toast appears. Only text is read. | `true` |
 
 ## Contributing
 

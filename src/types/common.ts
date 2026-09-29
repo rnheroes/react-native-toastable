@@ -12,6 +12,16 @@ export type ToastableDisplayMode = 'queue' | 'stack';
 
 export type StatusMap = Record<ToastableMessageStatus, ColorValue>;
 
+/** Physics of the entrance spring, as in `Animated.spring`. */
+export type ToastableSpringConfig = {
+  /** @default 200 */
+  stiffness?: number;
+  /** @default 15 */
+  damping?: number;
+  /** @default 1 */
+  mass?: number;
+};
+
 export type ToastableBodyParams = {
   /**
    * Render custom content. If set, `message`/`title` are passed through but the
@@ -56,6 +66,19 @@ export type ToastableBodyParams = {
   offset?: number;
   /** Animation curve. @default 'spring' */
   animationType?: ToastableAnimationType;
+  /**
+   * Entrance spring when `animationType` is `'spring'`, merged over the
+   * default. The default goes about 5 px past the resting place and settles;
+   * raise `damping` (e.g. 30) for no overshoot.
+   * @default { stiffness: 200, damping: 15, mass: 1 }
+   */
+  springConfig?: ToastableSpringConfig;
+  /**
+   * Announce `title` and `message` to screen readers (VoiceOver, TalkBack)
+   * when the toast appears. Only text (strings and numbers) is read.
+   * @default true
+   */
+  announceForAccessibility?: boolean;
   /** Called once the toast is fully hidden (after swipe, timeout, or manual hide). */
   onToastableHide?: () => void;
 };
@@ -83,6 +106,14 @@ export type ToastableProps = Omit<
   maxStack?: number;
   /** Vertical gap between stacked toasts in px. @default 8 */
   stackGap?: number;
+  /**
+   * Wraps the layer the toasts are drawn in. Use it to draw them in
+   * react-native-screens' `FullWindowOverlay` above native modals on iOS.
+   * Only rendered while a toast is on screen, and in `'queue'` mode mounted
+   * again for every toast, so an overlay that goes above what is on screen
+   * when it mounts covers any modal opened since the previous toast.
+   */
+  renderContainer?: (toasts: React.ReactNode) => React.ReactNode;
 };
 
 export type ToastableRef = {
