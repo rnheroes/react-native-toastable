@@ -45,6 +45,7 @@ export const Toastable = ({
   renderContent,
   springConfig,
   announceForAccessibility = true,
+  renderContainer,
 }: ToastableProps) => {
   const [active, setActive] = useState<ActiveToast[]>([]);
   // The toasts on screen, kept in step synchronously; `active` mirrors it for
@@ -139,7 +140,7 @@ export const Toastable = ({
 
   if (active.length === 0) return null;
 
-  return (
+  const layer = (
     <View pointerEvents="box-none" style={[styles.host, containerStyle]}>
       {active.map((item, index) => {
         const stackIndex =
@@ -178,6 +179,15 @@ export const Toastable = ({
         );
       })}
     </View>
+  );
+
+  if (!renderContainer) return layer;
+
+  // The key mounts the container again for each toast in queue mode.
+  return (
+    <React.Fragment key={displayMode === 'queue' ? active[0]?.__id : 'stack'}>
+      {renderContainer(layer)}
+    </React.Fragment>
   );
 };
 Toastable.displayName = 'Toastable';

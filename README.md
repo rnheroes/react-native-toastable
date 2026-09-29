@@ -100,6 +100,33 @@ A React Native `Modal` draws above the rest of the app (on Android it is a separ
 
 The most recently mounted `Toastable` shows the toasts, and toasts on screen or waiting move with it: into the modal's `Toastable` when the modal opens, and back to the root one when it closes. Calling `showToastable()` right before opening or closing a modal still shows the toast.
 
+### Above native modals on iOS
+
+On iOS, native modals (React Navigation's `modal` and `formSheet` presentations, `Modal`, pickers, share sheets) are view controllers presented above the root view, so they cover a `Toastable` at the root. `renderContainer` wraps the toast layer in whatever you pass, so you can draw it in [react-native-screens](https://github.com/software-mansion/react-native-screens)' `FullWindowOverlay`, which sits in the key window above every screen and modal. react-native-screens stays your dependency; this library does not need it.
+
+```tsx
+import { Platform } from 'react-native';
+import { FullWindowOverlay } from 'react-native-screens';
+
+<Toastable
+  offset={top}
+  renderContainer={(toasts) =>
+    Platform.OS === 'ios' ? (
+      <FullWindowOverlay unstable_accessibilityContainerViewIsModal={false}>
+        {toasts}
+      </FullWindowOverlay>
+    ) : (
+      toasts
+    )
+  }
+/>
+```
+
+- `FullWindowOverlay` only goes above the modals that are already open when it mounts. The container is rendered only while a toast is on screen and, in `'queue'` mode, mounted again for every toast, so each toast lands above the modals open at that moment. A toast that is already up when a modal opens stays under it, unless the modal has its own `Toastable` (see above).
+- `unstable_accessibilityContainerViewIsModal={false}` (react-native-screens 4.11 and later) keeps the rest of the app reachable with VoiceOver while a toast is up. Without it the overlay acts as a modal for VoiceOver and hides everything behind it.
+- Touches outside the toast pass through to the app underneath.
+- `FullWindowOverlay` is iOS only. On Android keep the plain layer and mount a `Toastable` inside each `Modal`.
+
 ## Props
 Inherit all other props from `ToastableBodyParams` interface. Except `backgroundColor`, `status`, `message`, `onPress`, `contentStyle` props.
 
@@ -110,6 +137,7 @@ Inherit all other props from `ToastableBodyParams` interface. Except `background
 | containerStyle      | `ViewProps['style']`   | Container style for toast container                                                                     | `undefined`                                                       |
 position | `'top' \| 'center'` | Toast position. | `'top'` |
 offset | `number` | Toast offset. | `56` |
+| renderContainer | `(toasts: ReactNode) => ReactNode` | Wraps the toast layer, e.g. in `FullWindowOverlay` to draw above native modals on iOS. See [Above native modals on iOS](#above-native-modals-on-ios). | `undefined` |
 
 ## ToastableBodyParams
 

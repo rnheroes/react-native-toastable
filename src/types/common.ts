@@ -106,6 +106,14 @@ export type ToastableProps = Omit<
   maxStack?: number;
   /** Vertical gap between stacked toasts in px. @default 8 */
   stackGap?: number;
+  /**
+   * Wraps the layer the toasts are drawn in. Use it to draw them in
+   * react-native-screens' `FullWindowOverlay` above native modals on iOS.
+   * Only rendered while a toast is on screen, and in `'queue'` mode mounted
+   * again for every toast, so an overlay that goes above what is on screen
+   * when it mounts covers any modal opened since the previous toast.
+   */
+  renderContainer?: (toasts: React.ReactNode) => React.ReactNode;
 };
 
 export type ToastableRef = {

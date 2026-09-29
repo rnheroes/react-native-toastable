@@ -587,6 +587,60 @@ describe('hosts', () => {
   });
 });
 
+describe('renderContainer', () => {
+  const mounts = jest.fn();
+  const Overlay = ({ children }: { children: React.ReactNode }) => {
+    React.useEffect(() => {
+      mounts();
+    }, []);
+    return <View testID="overlay">{children}</View>;
+  };
+
+  it('wraps the toasts while one is on screen', () => {
+    render(
+      <Toastable
+        duration={1000}
+        renderContainer={(toasts) => <Overlay>{toasts}</Overlay>}
+      />
+    );
+    expect(messagesIn('overlay')).toEqual([]);
+    show({ message: 'on top' });
+    expect(messagesIn('overlay')).toEqual(['on top']);
+    advance(3000);
+    expect(renderer!.toJSON()).toBeNull();
+  });
+
+  it('mounts the container again for every toast in queue mode', () => {
+    render(
+      <Toastable
+        duration={1000}
+        renderContainer={(toasts) => <Overlay>{toasts}</Overlay>}
+      />
+    );
+    show({ message: 'one' });
+    show({ message: 'two' });
+    advance(3000);
+    expect(messagesIn('overlay')).toEqual(['two']);
+    expect(mounts).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps one container for the whole stack', () => {
+    render(
+      <Toastable
+        displayMode="stack"
+        duration={60000}
+        renderContainer={(toasts) => <Overlay>{toasts}</Overlay>}
+      />
+    );
+    show({ message: 'one' });
+    advance(500);
+    show({ message: 'two' });
+    advance(500);
+    expect(messagesIn('overlay')).toEqual(['one', 'two']);
+    expect(mounts).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('swipe', () => {
   it('a drag up past the threshold dismisses the toast', () => {
     render(<Toastable duration={60000} />);
