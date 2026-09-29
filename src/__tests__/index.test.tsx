@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import { act, create } from 'react-test-renderer';
 import type { ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 
@@ -370,6 +370,57 @@ describe('touch', () => {
     finger.up();
     advance(1500);
     expect(messages()).toEqual([]);
+  });
+});
+
+describe('accessibility', () => {
+  const announced = () =>
+    (AccessibilityInfo.announceForAccessibility as jest.Mock).mock.calls.map(
+      ([text]) => text
+    );
+
+  it('announces the title and message when the toast appears', () => {
+    render(<Toastable duration={1000} />);
+    show({ title: 'Saved', message: 'Your photo is in the album' });
+    show({ message: 'Second' });
+    expect(announced()).toEqual(['Saved, Your photo is in the album']);
+
+    advance(3000);
+    expect(announced()).toEqual([
+      'Saved, Your photo is in the album',
+      'Second',
+    ]);
+  });
+
+  it('can be turned off for all toasts or for one', () => {
+    render(<Toastable announceForAccessibility={false} />);
+    show({ message: 'quiet' });
+    hide();
+    advance(1000);
+    show({ message: 'loud', announceForAccessibility: true });
+    expect(announced()).toEqual(['loud']);
+  });
+
+  it('only reads text', () => {
+    render(<Toastable />);
+    show({ message: <Text>custom</Text> });
+    expect(announced()).toEqual([]);
+  });
+
+  it('queues the announcement where React Native supports it', () => {
+    const withOptions = jest.fn();
+    const info = AccessibilityInfo as {
+      announceForAccessibilityWithOptions?: unknown;
+    };
+    info.announceForAccessibilityWithOptions = withOptions;
+    try {
+      render(<Toastable />);
+      show({ message: 'queued' });
+      expect(withOptions).toHaveBeenCalledWith('queued', { queue: true });
+      expect(announced()).toEqual([]);
+    } finally {
+      delete info.announceForAccessibilityWithOptions;
+    }
   });
 });
 

@@ -134,6 +134,7 @@ position | `'top' \| 'bottom'\| 'center'` | Toast position. | `'top'` |
 offset | `number` | Toast offset. | `56` |
 | animationType | `'spring' \| 'timing'` | Entrance curve. `'spring'` comes in from just outside its place with a small overshoot; `'timing'` eases in over `animationInTiming`. | `'spring'` |
 | springConfig | `{ stiffness?: number; damping?: number; mass?: number }` | Entrance spring, merged over the default. Raise `damping` (e.g. `30`) for no overshoot. | `{ stiffness: 200, damping: 15, mass: 1 }` |
+| announceForAccessibility | `boolean` | Announce `title` and `message` to screen readers (VoiceOver, TalkBack) when the toast appears. Only text is read. | `true` |
 
 ## Contributing
 

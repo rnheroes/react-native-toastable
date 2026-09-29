@@ -44,6 +44,7 @@ export const Toastable = ({
   onToastableHide,
   renderContent,
   springConfig,
+  announceForAccessibility = true,
 }: ToastableProps) => {
   const [active, setActive] = useState<ActiveToast[]>([]);
   // The toasts on screen, kept in step synchronously; `active` mirrors it for
@@ -164,6 +165,7 @@ export const Toastable = ({
             titleStyle={titleStyle}
             messageStyle={messageStyle}
             springConfig={springConfig}
+            announceForAccessibility={announceForAccessibility}
             onClosing={() => closingRef.current.add(item.__id)}
             onHide={() => remove(item.__id)}
           />

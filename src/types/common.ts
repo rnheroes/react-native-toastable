@@ -73,6 +73,12 @@ export type ToastableBodyParams = {
    * @default { stiffness: 200, damping: 15, mass: 1 }
    */
   springConfig?: ToastableSpringConfig;
+  /**
+   * Announce `title` and `message` to screen readers (VoiceOver, TalkBack)
+   * when the toast appears. Only text (strings and numbers) is read.
+   * @default true
+   */
+  announceForAccessibility?: boolean;
   /** Called once the toast is fully hidden (after swipe, timeout, or manual hide). */
   onToastableHide?: () => void;
 };

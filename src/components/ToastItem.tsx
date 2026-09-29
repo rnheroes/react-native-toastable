@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   Dimensions,
   Easing,
@@ -66,9 +67,27 @@ export type ToastItemProps = {
   titleStyle: ToastableBodyParams['titleStyle'];
   messageStyle: ToastableBodyParams['messageStyle'];
   springConfig: ToastableSpringConfig | undefined;
+  announceForAccessibility: boolean;
   /** Called once, when the toast starts to leave. */
   onClosing: () => void;
   onHide: () => void;
+};
+
+const isSpoken = (part: unknown): part is string | number =>
+  (typeof part === 'string' && part.length > 0) || typeof part === 'number';
+
+// Queued on iOS, so the toast is read after what VoiceOver is already saying
+// instead of cutting it off. Older React Native versions lack the option.
+const announce = (text: string) => {
+  if (
+    typeof AccessibilityInfo.announceForAccessibilityWithOptions === 'function'
+  ) {
+    AccessibilityInfo.announceForAccessibilityWithOptions(text, {
+      queue: true,
+    });
+  } else {
+    AccessibilityInfo.announceForAccessibility(text);
+  }
 };
 
 const detectDirection = (dx: number, dy: number): SwipeDirection => {
@@ -111,6 +130,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       titleStyle,
       messageStyle,
       springConfig,
+      announceForAccessibility,
       onClosing,
       onHide,
     },
@@ -131,6 +151,8 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     const itemMessageStyle = data.messageStyle ?? messageStyle;
     // Spring settings merge: defaults, then Toastable props, then the payload.
     const itemSpringConfig = { ...springConfig, ...data.springConfig };
+    const itemAnnounce =
+      data.announceForAccessibility ?? announceForAccessibility;
 
     // Stack direction: top stacks downward (+), bottom stacks upward (-). The
     // entrance comes from the same side: above for top and center, below for
@@ -178,6 +200,9 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       animationType: itemAnimationType,
       animationIn: itemAnimationIn,
       springConfig: itemSpringConfig,
+      announce: itemAnnounce,
+      title: data.title,
+      message: data.message,
       animationOut: itemAnimationOut,
       duration: itemDuration,
       alwaysVisible: itemAlwaysVisible,
@@ -414,6 +439,16 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
         toValue: restScale,
       }).start();
     }, [restScale, scale]);
+
+    // Screen readers hear the toast once, when it appears.
+    const announcedRef = useRef(false);
+    useEffect(() => {
+      if (announcedRef.current) return;
+      announcedRef.current = true;
+      const { announce: enabled, title, message } = stateRef.current;
+      const text = [title, message].filter(isSpoken).join(', ');
+      if (enabled && text) announce(text);
+    }, []);
 
     // Cleanup any pending timer on unmount. An exit animation stopped by the
     // unmount must not report a hide for a toast that is already gone.
