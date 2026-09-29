@@ -221,6 +221,44 @@ describe('queue', () => {
   });
 });
 
+describe('leaving toasts', () => {
+  it('a finger that drags a leaving toast does not stall the queue', () => {
+    render(<Toastable duration={60000} />);
+    show({ message: 'first' });
+    advance(1000);
+
+    const finger = touch(toastView()).down();
+    hide();
+    advance(48);
+    // The exit is under way when the finger starts to drag.
+    expect(motionOf(toastView()).opacity).toBeLessThan(1);
+    finger.move(-6).move(-10).up();
+    advance(1000);
+    expect(messages()).toEqual([]);
+
+    show({ message: 'second' });
+    advance(1000);
+    expect(messages()).toEqual(['second']);
+  });
+
+  it('a responder taking over a leaving toast does not stall the queue', () => {
+    const onToastableHide = jest.fn();
+    render(<Toastable duration={1000} />);
+    show({ message: 'first', onToastableHide });
+    show({ message: 'second' });
+    advance(1500);
+    // A parent responder (a ScrollView, a navigator gesture) can take the
+    // touch from the toast at any time.
+    const view = toastView();
+    hide();
+    advance(32);
+    act(() => view.props.onResponderTerminate?.({ touchHistory: {} }));
+    advance(1000);
+    expect(onToastableHide).toHaveBeenCalledTimes(1);
+    expect(messages()).toEqual(['second']);
+  });
+});
+
 describe('stack', () => {
   it('keeps at most maxStack toasts', () => {
     render(<Toastable displayMode="stack" maxStack={2} duration={60000} />);

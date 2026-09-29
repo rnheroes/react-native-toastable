@@ -148,6 +148,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       isClosing: false,
       hideCalled: false,
       hasEntered: false,
+      unmounted: false,
       animationOut: itemAnimationOut,
       duration: itemDuration,
       alwaysVisible: itemAlwaysVisible,
@@ -174,7 +175,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     }, []);
 
     const finishHide = useCallback(() => {
-      if (stateRef.current.hideCalled) return;
+      if (stateRef.current.hideCalled || stateRef.current.unmounted) return;
       stateRef.current.hideCalled = true;
       stateRef.current.onToastableHide?.();
       stateRef.current.onHide();
@@ -188,9 +189,6 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
         clearTimer();
 
         const outDuration = stateRef.current.animationOut;
-        const onSettled = ({ finished }: { finished: boolean }) => {
-          if (finished) finishHide();
-        };
 
         const axisAnimation =
           direction === 'left' || direction === 'right'
@@ -214,7 +212,10 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           useNativeDriver: true,
         });
 
-        Animated.parallel([axisAnimation, fade]).start(onSettled);
+        // Closing is final. If anything stops the exit before it ends, the
+        // toast is still removed; otherwise it would sit half faded and
+        // every queued toast would wait behind it forever.
+        Animated.parallel([axisAnimation, fade]).start(finishHide);
       },
       [clearTimer, finishHide, opacity, translateX, translateY]
     );
@@ -279,17 +280,33 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       }).start();
     }, [restScale, scale]);
 
-    // Cleanup any pending timer on unmount.
-    useEffect(() => clearTimer, [clearTimer]);
+    // Cleanup any pending timer on unmount. An exit animation stopped by the
+    // unmount must not report a hide for a toast that is already gone.
+    // StrictMode and a hidden Activity run this cleanup and then the effect
+    // again on the same toast: a toast whose exit the detach stopped is
+    // removed.
+    useEffect(() => {
+      const state = stateRef.current;
+      state.unmounted = false;
+      if (state.isClosing) finishHide();
+      return () => {
+        state.unmounted = true;
+        clearTimer();
+      };
+    }, [clearTimer, finishHide]);
 
     const panResponder = useMemo(
       () =>
         PanResponder.create({
+          // A toast that is already leaving ignores the finger: moving it
+          // would stop the exit animation halfway.
           onMoveShouldSetPanResponder: (_evt, g) =>
-            Math.abs(g.dx) >= TOASTABLE_PAN_RESPONDER_THRESHOLD ||
-            Math.abs(g.dy) >= TOASTABLE_PAN_RESPONDER_THRESHOLD,
+            !stateRef.current.isClosing &&
+            (Math.abs(g.dx) >= TOASTABLE_PAN_RESPONDER_THRESHOLD ||
+              Math.abs(g.dy) >= TOASTABLE_PAN_RESPONDER_THRESHOLD),
           onPanResponderGrant: clearTimer,
           onPanResponderMove: (_evt, g) => {
+            if (stateRef.current.isClosing) return;
             const dir = detectDirection(g.dx, g.dy);
             const allowed = stateRef.current.swipeDir;
             if (!isDirectionAllowed(g.dx, g.dy, dir, allowed)) return;
@@ -301,6 +318,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
             }
           },
           onPanResponderRelease: (_evt, g: PanResponderGestureState) => {
+            if (stateRef.current.isClosing) return;
             const dir = detectDirection(g.dx, g.dy);
             const distance =
               dir === 'left' || dir === 'right'
@@ -332,6 +350,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
             });
           },
           onPanResponderTerminate: () => {
+            if (stateRef.current.isClosing) return;
             Animated.parallel([
               Animated.spring(translateX, {
                 ...TOASTABLE_SPRING_CONFIG,
