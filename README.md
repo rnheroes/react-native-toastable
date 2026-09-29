@@ -98,7 +98,7 @@ A React Native `Modal` draws above the rest of the app (on Android it is a separ
 </Modal>
 ```
 
-The most recently mounted `Toastable` shows the toasts. When the modal closes, the root `Toastable` takes over again, and toasts that were still on screen or waiting in the modal move to it, so calling `showToastable()` right before closing the modal still shows the toast.
+The most recently mounted `Toastable` shows the toasts, and toasts on screen or waiting move with it: into the modal's `Toastable` when the modal opens, and back to the root one when it closes. Calling `showToastable()` right before opening or closing a modal still shows the toast.
 
 ## Props
 Inherit all other props from `ToastableBodyParams` interface. Except `backgroundColor`, `status`, `message`, `onPress`, `contentStyle` props.

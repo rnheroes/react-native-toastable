@@ -116,13 +116,19 @@ export const Toastable = ({
         if (top) closeToast(top);
       },
       takePending: () => {
-        const shown = activeRef.current
-          .filter((t) => !closingRef.current.has(t.__id))
-          .map(toParams);
+        const isLeaving = (t: ActiveToast) => closingRef.current.has(t.__id);
+        const shown = activeRef.current.filter((t) => !isLeaving(t));
         const queued = queueRef.current;
-        activeRef.current = [];
         queueRef.current = [];
-        return [...shown, ...queued];
+        // The toasts handed over leave this host without an exit, so they are
+        // not shown, timed and reported twice. Leaving ones finish here.
+        commit(activeRef.current.filter(isLeaving));
+        // Screen readers already heard the ones on screen.
+        const moved = shown.map((t) => ({
+          ...toParams(t),
+          announceForAccessibility: false,
+        }));
+        return [...moved, ...queued];
       },
     };
 

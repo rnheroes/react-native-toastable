@@ -516,6 +516,53 @@ describe('hosts', () => {
     expect(messagesIn('root')).toEqual(['after the modal']);
   });
 
+  it('a toast on screen when a modal opens moves into the modal', () => {
+    const onToastableHide = jest.fn();
+    render(<App modal={false} />);
+    show({ message: 'copied', onToastableHide });
+    advance(300);
+    expect(messagesIn('root')).toEqual(['copied']);
+
+    rerender(<App modal />);
+    expect(messagesIn('modal')).toEqual(['copied']);
+    expect(messagesIn('root')).toEqual([]);
+    advance(3000);
+    expect(messagesIn('modal')).toEqual([]);
+    expect(onToastableHide).toHaveBeenCalledTimes(1);
+  });
+
+  it('a toast that moves between hosts is announced once', () => {
+    render(<App modal={false} />);
+    show({ message: 'copied' });
+    advance(300);
+    rerender(<App modal />);
+    advance(300);
+    act(() => {
+      showToastable({ message: 'saved' });
+      renderer!.update(<App modal={false} />);
+    });
+    advance(5000);
+    expect(
+      (AccessibilityInfo.announceForAccessibility as jest.Mock).mock.calls
+    ).toEqual([['copied'], ['saved']]);
+  });
+
+  it('a toast already leaving when a modal opens finishes where it is', () => {
+    const onToastableHide = jest.fn();
+    render(<App modal={false} />);
+    show({ message: 'leaving', onToastableHide });
+    advance(500);
+    hide();
+    advance(100);
+
+    rerender(<App modal />);
+    expect(messagesIn('modal')).toEqual([]);
+    expect(messagesIn('root')).toEqual(['leaving']);
+    advance(500);
+    expect(messagesIn('root')).toEqual([]);
+    expect(onToastableHide).toHaveBeenCalledTimes(1);
+  });
+
   it('a toast shown right before its host unmounts moves to the next host', () => {
     render(<App modal />);
     act(() => {

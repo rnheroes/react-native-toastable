@@ -13,13 +13,17 @@ export type ToastableHost = {
 /**
  * Mounted `<Toastable />` hosts, oldest first. The most recently mounted one
  * shows the toasts, so a host rendered inside a `Modal` takes over while the
- * modal is open and the root host takes back over when it closes.
+ * modal is open and the root host takes back over when it closes. Toasts on
+ * screen or queued move along with each change, so none end up under the
+ * modal or disappear with it.
  */
 const hosts: ToastableHost[] = [];
 
 /** Adds a host on top. Returns the function that removes it again. */
 export const registerToastableHost = (host: ToastableHost) => {
+  const previous = hosts[hosts.length - 1];
   hosts.push(host);
+  previous?.takePending().forEach(showToastable);
   return () => {
     const index = hosts.lastIndexOf(host);
     if (index === -1) return;
