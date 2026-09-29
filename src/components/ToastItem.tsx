@@ -26,6 +26,7 @@ import {
   TOASTABLE_PAN_RESPONDER_THRESHOLD,
   TOASTABLE_SPRING_CONFIG,
   TOASTABLE_SWIPE_THRESHOLD,
+  TOASTABLE_SWIPE_VELOCITY,
 } from '../constants';
 import type {
   StatusMap,
@@ -474,6 +475,10 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           const dir = detectDirection(g.dx, g.dy);
           const distance =
             dir === 'left' || dir === 'right' ? Math.abs(g.dx) : Math.abs(g.dy);
+          // Speed along the swipe direction when the finger lifted.
+          const speed = { up: -g.vy, down: g.vy, left: -g.vx, right: g.vx }[
+            dir
+          ];
           const allowed = isDirectionAllowed(
             g.dx,
             g.dy,
@@ -481,7 +486,12 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
             stateRef.current.swipeDir
           );
 
-          if (allowed && distance > TOASTABLE_SWIPE_THRESHOLD) {
+          // A long drag or a quick flick in an allowed direction dismisses.
+          if (
+            allowed &&
+            (distance > TOASTABLE_SWIPE_THRESHOLD ||
+              speed > TOASTABLE_SWIPE_VELOCITY)
+          ) {
             close(dir);
             return;
           }

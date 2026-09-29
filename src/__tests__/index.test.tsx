@@ -500,6 +500,26 @@ describe('swipe', () => {
     expect(messages()).toEqual([]);
   });
 
+  it('a quick flick dismisses the toast even over a short distance', () => {
+    render(<Toastable duration={60000} />);
+    show({ message: 'flick me' });
+    advance(1000);
+
+    touch(toastView()).down().move(-6).move(-15).move(-15).up();
+    advance(1000);
+    expect(messages()).toEqual([]);
+  });
+
+  it('a flick against the drag does not dismiss', () => {
+    render(<Toastable duration={60000} />);
+    show({ message: 'changed my mind' });
+    advance(1000);
+
+    touch(toastView()).down().move(-6).move(-20).move(-10).move(15).up();
+    advance(1000);
+    expect(messages()).toEqual(['changed my mind']);
+  });
+
   it('a short, slow drag springs back and the toast stays', () => {
     render(<Toastable duration={60000} />);
     show({ message: 'stay' });
