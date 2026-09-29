@@ -102,6 +102,18 @@ const motionOf = (view: ReactTestInstance): Motion => {
   };
 };
 
+/** Frame by frame values of a toast over `ms`, starting with the current one. */
+const record = (view: ReactTestInstance, ms: number) => {
+  const frames: Motion[] = [motionOf(view)];
+  for (let elapsed = 0; elapsed < ms; elapsed += 16) {
+    advance(16);
+    frames.push(motionOf(view));
+  }
+  return frames;
+};
+
+const translateYs = (frames: Motion[]) => frames.map((f) => f.translateY);
+
 /**
  * A finger on a toast. Drives the responder props the way React Native's
  * responder system does: touch events on the toast, then should-set,
@@ -240,6 +252,78 @@ describe('queue', () => {
     hide();
     advance(1000);
     expect(messages()).toEqual([]);
+  });
+});
+
+describe('motion', () => {
+  it('springs in from just above its place with a small overshoot', () => {
+    render(<Toastable />);
+    show({ message: 'hello' });
+    const frames = record(toastView(), 1000);
+    const ys = translateYs(frames);
+
+    // Starts on screen, 36 px above its place, transparent and a bit smaller.
+    expect(frames[0]).toEqual({ opacity: 0, translateY: -36, scale: 0.95 });
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(-36);
+    // Visible within the first frames, fully opaque after the fade.
+    expect(frames[2]!.opacity).toBeGreaterThan(0.2);
+    expect(frames[12]!.opacity).toBe(1);
+    // Goes a few px past its place, then settles on it.
+    expect(Math.max(...ys)).toBeGreaterThan(3);
+    expect(Math.max(...ys)).toBeLessThan(8);
+    expect(ys[ys.length - 1]).toBe(0);
+  });
+
+  it('springConfig tunes the entrance spring', () => {
+    render(<Toastable springConfig={{ damping: 40 }} />);
+    show({ message: 'no bounce' });
+    const ys = translateYs(record(toastView(), 1000));
+    expect(Math.max(...ys)).toBeLessThanOrEqual(0.5);
+    expect(ys[ys.length - 1]).toBe(0);
+  });
+
+  it('a bottom toast comes in from below', () => {
+    render(<Toastable position="bottom" />);
+    show({ message: 'from below' });
+    const ys = translateYs(record(toastView(), 1000));
+    expect(ys[0]).toBe(36);
+    expect(Math.min(...ys)).toBeLessThan(-3);
+    expect(ys[ys.length - 1]).toBe(0);
+  });
+
+  it('the timing entrance runs over animationInTiming from just above', () => {
+    render(<Toastable animationType="timing" animationInTiming={400} />);
+    show({ message: 'timing' });
+    const ys = translateYs(record(toastView(), 600));
+    expect(ys[0]).toBe(-36);
+    expect(Math.max(...ys)).toBe(0);
+    expect(ys[Math.round(400 / 16) + 1]).toBe(0);
+  });
+
+  it('the auto-hide timer starts once the entrance has settled', () => {
+    render(<Toastable duration={1000} />);
+    show({ message: 'timed' });
+    // Entrance (under 0.7 s) plus duration, and the toast is still there.
+    advance(1600);
+    expect(messages()).toEqual(['timed']);
+    advance(700);
+    expect(messages()).toEqual([]);
+  });
+
+  it('the exit plays on screen: a short lift while it fades', () => {
+    render(<Toastable duration={60000} />);
+    show({ message: 'bye' });
+    advance(1000);
+    const view = toastView();
+    hide();
+    const frames = record(view, 272);
+    const ys = translateYs(frames);
+
+    expect(ys.every((y) => y <= 0 && y >= -36)).toBe(true);
+    // Still near its place a few frames in, and visibly fading.
+    expect(ys[4]).toBeGreaterThan(-8);
+    expect(frames[8]!.opacity).toBeGreaterThan(0.3);
+    expect(frames[8]!.opacity).toBeLessThan(0.9);
   });
 });
 

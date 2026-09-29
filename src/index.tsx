@@ -12,6 +12,7 @@ import type {
   ToastableProps,
   StatusMap,
   SwipeDirection,
+  ToastableSpringConfig,
 } from './types';
 
 export default Toastable;
@@ -28,4 +29,5 @@ export type {
   ToastablePosition,
   StatusMap,
   SwipeDirection,
+  ToastableSpringConfig,
 };

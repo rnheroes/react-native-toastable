@@ -12,6 +12,16 @@ export type ToastableDisplayMode = 'queue' | 'stack';
 
 export type StatusMap = Record<ToastableMessageStatus, ColorValue>;
 
+/** Physics of the entrance spring, as in `Animated.spring`. */
+export type ToastableSpringConfig = {
+  /** @default 200 */
+  stiffness?: number;
+  /** @default 15 */
+  damping?: number;
+  /** @default 1 */
+  mass?: number;
+};
+
 export type ToastableBodyParams = {
   /**
    * Render custom content. If set, `message`/`title` are passed through but the
@@ -56,6 +66,13 @@ export type ToastableBodyParams = {
   offset?: number;
   /** Animation curve. @default 'spring' */
   animationType?: ToastableAnimationType;
+  /**
+   * Entrance spring when `animationType` is `'spring'`, merged over the
+   * default. The default goes about 5 px past the resting place and settles;
+   * raise `damping` (e.g. 30) for no overshoot.
+   * @default { stiffness: 200, damping: 15, mass: 1 }
+   */
+  springConfig?: ToastableSpringConfig;
   /** Called once the toast is fully hidden (after swipe, timeout, or manual hide). */
   onToastableHide?: () => void;
 };

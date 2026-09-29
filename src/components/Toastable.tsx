@@ -43,6 +43,7 @@ export const Toastable = ({
   stackGap = TOASTABLE_STACK_GAP,
   onToastableHide,
   renderContent,
+  springConfig,
 }: ToastableProps) => {
   const [active, setActive] = useState<ActiveToast[]>([]);
   // The toasts on screen, kept in step synchronously; `active` mirrors it for
@@ -162,6 +163,7 @@ export const Toastable = ({
             messageColor={messageColor}
             titleStyle={titleStyle}
             messageStyle={messageStyle}
+            springConfig={springConfig}
             onClosing={() => closingRef.current.add(item.__id)}
             onHide={() => remove(item.__id)}
           />

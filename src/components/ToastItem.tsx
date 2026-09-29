@@ -17,6 +17,11 @@ import {
 import type { PanResponderGestureState } from 'react-native';
 
 import {
+  TOASTABLE_ENTER_DISTANCE,
+  TOASTABLE_ENTER_REST,
+  TOASTABLE_ENTER_SCALE,
+  TOASTABLE_ENTER_SPRING,
+  TOASTABLE_FADE_IN_DURATION,
   TOASTABLE_PAN_RESPONDER_THRESHOLD,
   TOASTABLE_SPRING_CONFIG,
   TOASTABLE_SWIPE_THRESHOLD,
@@ -27,6 +32,7 @@ import type {
   ToastableAnimationType,
   ToastableBodyParams,
   ToastablePosition,
+  ToastableSpringConfig,
 } from '../types';
 import { ToastableBody } from './ToastableBody';
 
@@ -57,6 +63,7 @@ export type ToastItemProps = {
   messageColor: NonNullable<ToastableBodyParams['messageColor']>;
   titleStyle: ToastableBodyParams['titleStyle'];
   messageStyle: ToastableBodyParams['messageStyle'];
+  springConfig: ToastableSpringConfig | undefined;
   /** Called once, when the toast starts to leave. */
   onClosing: () => void;
   onHide: () => void;
@@ -101,6 +108,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       messageColor,
       titleStyle,
       messageStyle,
+      springConfig,
       onClosing,
       onHide,
     },
@@ -119,11 +127,13 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     const itemMessageColor = data.messageColor ?? messageColor;
     const itemTitleStyle = data.titleStyle ?? titleStyle;
     const itemMessageStyle = data.messageStyle ?? messageStyle;
+    // Spring settings merge: defaults, then Toastable props, then the payload.
+    const itemSpringConfig = { ...springConfig, ...data.springConfig };
 
-    // Stack direction: top stacks downward (+), bottom stacks upward (-).
+    // Stack direction: top stacks downward (+), bottom stacks upward (-). The
+    // entrance comes from the same side: above for top and center, below for
+    // bottom.
     const stackSign = itemPosition === 'bottom' ? -1 : 1;
-    // Off-screen entry/exit edge.
-    const offScreenY = stackSign === 1 ? -SCREEN.height : SCREEN.height;
 
     // Deck-of-cards layout: each older card peeks out by `stackGap` below the
     // newer one. No content-height math — that produced a vertical fan
@@ -131,14 +141,20 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     const restY = stackSign * stackIndex * stackGap;
     const restScale = Math.max(MIN_SCALE, 1 - stackIndex * SCALE_STEP);
 
-    // Single Animated.Value per axis. Initial Y is off-screen so the entry
-    // animation can spring up to restY.
+    // Single Animated.Value per axis. The toast starts a short distance
+    // outside restY, a little smaller and transparent, so the entrance plays
+    // on screen instead of spending its first part off screen.
     const translateX = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(offScreenY)).current;
-    const scale = useRef(new Animated.Value(1)).current;
-    // Opacity drops to 0 on close so the exit animation reads even when
-    // newer toasts are layered above this one in z-order.
-    const opacity = useRef(new Animated.Value(1)).current;
+    const translateY = useRef(
+      new Animated.Value(restY - stackSign * TOASTABLE_ENTER_DISTANCE)
+    ).current;
+    const scale = useRef(
+      new Animated.Value(restScale * TOASTABLE_ENTER_SCALE)
+    ).current;
+    // Opacity fades in on the entrance, and drops to 0 on close so the exit
+    // animation reads even when newer toasts are layered above this one in
+    // z-order.
+    const opacity = useRef(new Animated.Value(0)).current;
 
     // Tracked as state (not just a ref) so the View re-renders with the
     // higher zIndex when the toast starts closing — that brings the
@@ -152,20 +168,30 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       hideCalled: false,
       hasEntered: false,
       unmounted: false,
+      animationType: itemAnimationType,
+      animationIn: itemAnimationIn,
+      springConfig: itemSpringConfig,
       animationOut: itemAnimationOut,
       duration: itemDuration,
       alwaysVisible: itemAlwaysVisible,
       swipeDir: itemSwipeDir,
+      sign: stackSign,
       restY,
+      restScale,
       onToastableHide: data.onToastableHide,
       onClosing,
       onHide,
     });
+    stateRef.current.animationType = itemAnimationType;
+    stateRef.current.animationIn = itemAnimationIn;
+    stateRef.current.springConfig = itemSpringConfig;
     stateRef.current.animationOut = itemAnimationOut;
     stateRef.current.duration = itemDuration;
     stateRef.current.alwaysVisible = itemAlwaysVisible;
     stateRef.current.swipeDir = itemSwipeDir;
+    stateRef.current.sign = stackSign;
     stateRef.current.restY = restY;
+    stateRef.current.restScale = restScale;
     stateRef.current.onToastableHide = data.onToastableHide;
     stateRef.current.onClosing = onClosing;
     stateRef.current.onHide = onHide;
@@ -186,100 +212,162 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       stateRef.current.onHide();
     }, []);
 
+    // Without a direction (timer, hideToastable(), maxStack, tap) the toast
+    // leaves the way it came in; with one it follows the swipe off screen.
     const close = useCallback(
-      (direction: SwipeDirection = 'up') => {
-        if (stateRef.current.isClosing) return;
-        stateRef.current.isClosing = true;
-        stateRef.current.onClosing();
+      (direction?: SwipeDirection) => {
+        const state = stateRef.current;
+        if (state.isClosing) return;
+        state.isClosing = true;
+        state.onClosing();
         setIsExiting(true);
         clearTimer();
 
-        const outDuration = stateRef.current.animationOut;
-
-        const axisAnimation =
-          direction === 'left' || direction === 'right'
-            ? Animated.timing(translateX, {
-                toValue: direction === 'left' ? -SCREEN.width : SCREEN.width,
-                duration: outDuration,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-              })
-            : Animated.timing(translateY, {
-                toValue: direction === 'down' ? SCREEN.height : -SCREEN.height,
-                duration: outDuration,
-                easing: Easing.out(Easing.cubic),
-                useNativeDriver: true,
-              });
-
-        const fade = Animated.timing(opacity, {
-          toValue: 0,
-          duration: outDuration,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        });
+        let exit: Animated.CompositeAnimation[];
+        if (direction) {
+          const out = {
+            duration: state.animationOut,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          };
+          exit = [
+            direction === 'left' || direction === 'right'
+              ? Animated.timing(translateX, {
+                  ...out,
+                  toValue: direction === 'left' ? -SCREEN.width : SCREEN.width,
+                })
+              : Animated.timing(translateY, {
+                  ...out,
+                  toValue:
+                    direction === 'down' ? SCREEN.height : -SCREEN.height,
+                }),
+            Animated.timing(opacity, { ...out, toValue: 0 }),
+          ];
+        } else {
+          // A short lift while fading and shrinking. Sliding a full window
+          // height instead took the toast off screen within the first frame,
+          // so the exit was never seen.
+          const out = {
+            duration: state.animationOut,
+            easing: Easing.in(Easing.quad),
+            useNativeDriver: true,
+          };
+          exit = [
+            Animated.timing(translateY, {
+              ...out,
+              toValue: state.restY - state.sign * TOASTABLE_ENTER_DISTANCE,
+            }),
+            Animated.timing(scale, {
+              ...out,
+              toValue: state.restScale * TOASTABLE_ENTER_SCALE,
+            }),
+            Animated.timing(opacity, { ...out, toValue: 0 }),
+          ];
+        }
 
         // Closing is final. If anything stops the exit before it ends, the
         // toast is still removed; otherwise it would sit half faded and
         // every queued toast would wait behind it forever.
-        Animated.parallel([axisAnimation, fade]).start(finishHide);
+        Animated.parallel(exit).start(finishHide);
       },
-      [clearTimer, finishHide, opacity, translateX, translateY]
+      [clearTimer, finishHide, opacity, scale, translateX, translateY]
     );
 
     const scheduleAutoHide = useCallback(() => {
       if (stateRef.current.alwaysVisible) return;
       clearTimer();
-      timerRef.current = setTimeout(
-        () => close('up'),
-        stateRef.current.duration
-      );
+      timerRef.current = setTimeout(() => close(), stateRef.current.duration);
     }, [clearTimer, close]);
 
-    useImperativeHandle(ref, () => ({ close: () => close('up') }), [close]);
+    // The entrance, or a stack reflow that interrupted it, has settled: the
+    // auto-hide timer starts.
+    const markEntered = useCallback(() => {
+      const state = stateRef.current;
+      if (state.hasEntered) return;
+      state.hasEntered = true;
+      scheduleAutoHide();
+    }, [scheduleAutoHide]);
 
-    // translateY driver: entry on first run (respecting animationType),
-    // spring on subsequent restY changes (stack reflow). Whichever settle
-    // finishes last arms the auto-hide timer.
-    const isFirstRunRef = useRef(true);
+    useImperativeHandle(ref, () => ({ close: () => close() }), [close]);
+
+    // The entrance: from a short distance outside restY, a little smaller and
+    // transparent, the toast springs in (or eases in, with animationType
+    // 'timing') while it fades in, so the whole motion happens on screen.
+    // StrictMode and a hidden Activity detach the view, which stops running
+    // animations, and then run the effect again: it goes on from where it is.
     useEffect(() => {
-      if (stateRef.current.isClosing) return;
+      const state = stateRef.current;
+      if (state.isClosing || state.hasEntered) return undefined;
 
-      const onSettled = ({ finished }: { finished: boolean }) => {
-        if (!finished) return;
-        if (stateRef.current.hasEntered) return;
-        stateRef.current.hasEntered = true;
-        scheduleAutoHide();
-      };
-
-      const isFirstRun = isFirstRunRef.current;
-      isFirstRunRef.current = false;
-
-      if (isFirstRun && itemAnimationType === 'timing') {
-        Animated.timing(translateY, {
-          toValue: restY,
-          duration: itemAnimationIn,
+      let move: Animated.CompositeAnimation;
+      let grow: Animated.CompositeAnimation;
+      if (state.animationType === 'timing') {
+        const config = {
+          duration: state.animationIn,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start(onSettled);
+        };
+        move = Animated.timing(translateY, { ...config, toValue: state.restY });
+        grow = Animated.timing(scale, { ...config, toValue: state.restScale });
       } else {
-        Animated.spring(translateY, {
-          ...TOASTABLE_SPRING_CONFIG,
-          toValue: restY,
-        }).start(onSettled);
+        const config = {
+          ...TOASTABLE_ENTER_SPRING,
+          ...state.springConfig,
+          useNativeDriver: true,
+        };
+        move = Animated.spring(translateY, {
+          ...config,
+          ...TOASTABLE_ENTER_REST,
+          toValue: state.restY,
+        });
+        grow = Animated.spring(scale, { ...config, toValue: state.restScale });
       }
-    }, [
-      restY,
-      translateY,
-      scheduleAutoHide,
-      itemAnimationType,
-      itemAnimationIn,
-    ]);
+      const fade = Animated.timing(opacity, {
+        toValue: 1,
+        duration:
+          state.animationType === 'timing'
+            ? Math.min(state.animationIn, TOASTABLE_FADE_IN_DURATION)
+            : TOASTABLE_FADE_IN_DURATION,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      });
+      // Started separately rather than in parallel: a finger that grabs the
+      // toast mid-entrance stops the move, and the fade must still finish.
+      fade.start();
+      grow.start();
+      move.start(({ finished }) => {
+        if (finished) markEntered();
+      });
+      return () => {
+        fade.stop();
+        grow.stop();
+        move.stop();
+      };
+    }, [opacity, scale, translateY, markEntered]);
 
-    // Scale driver: only runs on restScale changes (i.e. stack promotions).
-    // Skipped while closing so the fade-out isn't tugged sideways by a
-    // stack reflow that fires the moment a sibling unmounts.
+    // translateY follows restY when the stack reflows. The first spring to
+    // finish (the entrance, or a reflow that interrupted it) arms the
+    // auto-hide timer.
+    const lastRestYRef = useRef(restY);
+    useEffect(() => {
+      if (stateRef.current.isClosing || lastRestYRef.current === restY) return;
+      lastRestYRef.current = restY;
+      Animated.spring(translateY, {
+        ...TOASTABLE_SPRING_CONFIG,
+        toValue: restY,
+      }).start(({ finished }) => {
+        if (finished) markEntered();
+      });
+    }, [restY, translateY, markEntered]);
+
+    // Scale driver: runs on restScale changes (stack promotions) after the
+    // entrance. Skipped while closing so the fade-out isn't tugged sideways
+    // by a stack reflow that fires the moment a sibling unmounts.
+    const lastRestScaleRef = useRef(restScale);
     useEffect(() => {
       if (stateRef.current.isClosing) return;
+      if (lastRestScaleRef.current === restScale) return;
+      lastRestScaleRef.current = restScale;
       Animated.spring(scale, {
         ...TOASTABLE_SPRING_CONFIG,
         toValue: restScale,
@@ -375,7 +463,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     );
 
     const onPress = useCallback(() => {
-      if (stateRef.current.alwaysVisible) close('up');
+      if (stateRef.current.alwaysVisible) close();
       data.onPress?.();
     }, [close, data]);
 
