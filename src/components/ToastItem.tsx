@@ -57,6 +57,8 @@ export type ToastItemProps = {
   messageColor: NonNullable<ToastableBodyParams['messageColor']>;
   titleStyle: ToastableBodyParams['titleStyle'];
   messageStyle: ToastableBodyParams['messageStyle'];
+  /** Called once, when the toast starts to leave. */
+  onClosing: () => void;
   onHide: () => void;
 };
 
@@ -99,6 +101,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       messageColor,
       titleStyle,
       messageStyle,
+      onClosing,
       onHide,
     },
     ref
@@ -155,6 +158,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       swipeDir: itemSwipeDir,
       restY,
       onToastableHide: data.onToastableHide,
+      onClosing,
       onHide,
     });
     stateRef.current.animationOut = itemAnimationOut;
@@ -163,6 +167,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     stateRef.current.swipeDir = itemSwipeDir;
     stateRef.current.restY = restY;
     stateRef.current.onToastableHide = data.onToastableHide;
+    stateRef.current.onClosing = onClosing;
     stateRef.current.onHide = onHide;
 
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,6 +190,7 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       (direction: SwipeDirection = 'up') => {
         if (stateRef.current.isClosing) return;
         stateRef.current.isClosing = true;
+        stateRef.current.onClosing();
         setIsExiting(true);
         clearTimer();
 

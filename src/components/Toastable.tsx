@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 
 import {
@@ -12,12 +12,16 @@ import {
   TOASTABLE_STATUS_MAP,
 } from '../constants';
 import type { ToastableBodyParams, ToastableProps } from '../types';
-import { toastableRef } from '../utils/controller';
+import { registerToastableHost } from '../utils/controller';
+import type { ToastableHost } from '../utils/controller';
 import { ToastItem, ToastItemHandle } from './ToastItem';
 
 type ActiveToast = ToastableBodyParams & { __id: number };
 
 let nextId = 0;
+
+const toParams = ({ __id: _id, ...item }: ActiveToast): ToastableBodyParams =>
+  item;
 
 export const Toastable = ({
   animationInTiming = TOASTABLE_ANIMATION_DURATION,
@@ -41,78 +45,89 @@ export const Toastable = ({
   renderContent,
 }: ToastableProps) => {
   const [active, setActive] = useState<ActiveToast[]>([]);
+  // The toasts on screen, kept in step synchronously; `active` mirrors it for
+  // rendering. Nothing is decided inside a state updater, so a toast shown
+  // and handed to another host in the same tick is not lost.
+  const activeRef = useRef<ActiveToast[]>([]);
   const queueRef = useRef<ToastableBodyParams[]>([]);
+  // Toasts that have started their exit.
+  const closingRef = useRef(new Set<number>());
   const itemRefs = useRef(new Map<number, ToastItemHandle>());
+  const settingsRef = useRef({ displayMode, maxStack, onToastableHide });
+  settingsRef.current = { displayMode, maxStack, onToastableHide };
 
-  const showToastable = useCallback(
-    (item: ToastableBodyParams) => {
-      const entry: ActiveToast = { ...item, __id: nextId++ };
-      setActive((prev) => {
-        if (displayMode === 'queue') {
-          if (prev.length === 0) return [entry];
+  // Created once, so the host keeps its place among the mounted hosts while
+  // its props change.
+  const [{ host, remove }] = useState(() => {
+    const commit = (next: ActiveToast[]) => {
+      activeRef.current = next;
+      setActive(next);
+    };
+
+    const removeToast = (id: number) => {
+      closingRef.current.delete(id);
+      itemRefs.current.delete(id);
+      const rest = activeRef.current.filter((t) => t.__id !== id);
+      const next =
+        settingsRef.current.displayMode === 'queue'
+          ? queueRef.current.shift()
+          : undefined;
+      commit(next ? [...rest, { ...next, __id: nextId++ }] : rest);
+      settingsRef.current.onToastableHide?.();
+    };
+
+    // Starts the exit of a toast. One that has not been drawn yet (shown and
+    // hidden within the same tick) is dropped right away.
+    const closeToast = (toast: ActiveToast) => {
+      const handle = itemRefs.current.get(toast.__id);
+      if (handle) {
+        handle.close();
+        return;
+      }
+      toast.onToastableHide?.();
+      removeToast(toast.__id);
+    };
+
+    const toastableHost: ToastableHost = {
+      showToastable: (item) => {
+        const { displayMode: mode, maxStack: max } = settingsRef.current;
+        const current = activeRef.current;
+        if (mode === 'queue' && current.length > 0) {
           queueRef.current.push(item);
-          return prev;
+          return;
         }
-        const next = [...prev, entry];
-        // Close every overflow toast, not just the first. If the user
-        // bursts a few shows in under one exit-animation, the oldest item
-        // is already closing — calling .close() on it is a no-op, so we
-        // need to keep walking forward and close the next-oldest items
-        // until we're back at maxStack.
-        const overflow = next.length - maxStack;
-        for (let i = 0; i < overflow; i++) {
-          const candidate = next[i];
-          if (candidate) itemRefs.current.get(candidate.__id)?.close();
-        }
-        return next;
-      });
-    },
-    [displayMode, maxStack]
-  );
-
-  const removeById = useCallback(
-    (id: number) => {
-      setActive((prev) => {
-        const filtered = prev.filter((t) => t.__id !== id);
-        itemRefs.current.delete(id);
-
-        if (displayMode === 'queue') {
-          const nextItem = queueRef.current.shift();
-          if (nextItem) {
-            return [...filtered, { ...nextItem, __id: nextId++ }];
-          }
-        }
-        return filtered;
-      });
-      onToastableHide?.();
-    },
-    [displayMode, onToastableHide]
-  );
-
-  const hideTopmost = useCallback(() => {
-    setActive((prev) => {
-      // Hide the most recently shown toast (LIFO). The item closes itself
-      // through its handle, and `removeById` then drops it from state.
-      const top = prev[prev.length - 1];
-      if (top) itemRefs.current.get(top.__id)?.close();
-      return prev;
-    });
-  }, []);
-
-  useEffect(() => {
-    (
-      toastableRef as React.MutableRefObject<{
-        showToastable: typeof showToastable;
-        hideToastable: typeof hideTopmost;
-      } | null>
-    ).current = {
-      showToastable,
-      hideToastable: hideTopmost,
+        commit([...current, { ...item, __id: nextId++ }]);
+        if (mode !== 'stack') return;
+        // Trim back to maxStack, oldest first, counting only the toasts that
+        // are not already leaving, so a burst faster than one exit animation
+        // still ends up with maxStack toasts.
+        const staying = activeRef.current.filter(
+          (t) => !closingRef.current.has(t.__id)
+        );
+        staying.slice(0, Math.max(0, staying.length - max)).forEach(closeToast);
+      },
+      hideToastable: () => {
+        // The most recently shown toast that is not already leaving.
+        const top = [...activeRef.current]
+          .reverse()
+          .find((t) => !closingRef.current.has(t.__id));
+        if (top) closeToast(top);
+      },
+      takePending: () => {
+        const shown = activeRef.current
+          .filter((t) => !closingRef.current.has(t.__id))
+          .map(toParams);
+        const queued = queueRef.current;
+        activeRef.current = [];
+        queueRef.current = [];
+        return [...shown, ...queued];
+      },
     };
-    return () => {
-      (toastableRef as React.MutableRefObject<unknown>).current = null;
-    };
-  }, [showToastable, hideTopmost]);
+
+    return { host: toastableHost, remove: removeToast };
+  });
+
+  useEffect(() => registerToastableHost(host), [host]);
 
   if (active.length === 0) return null;
 
@@ -147,7 +162,8 @@ export const Toastable = ({
             messageColor={messageColor}
             titleStyle={titleStyle}
             messageStyle={messageStyle}
-            onHide={() => removeById(item.__id)}
+            onClosing={() => closingRef.current.add(item.__id)}
+            onHide={() => remove(item.__id)}
           />
         );
       })}

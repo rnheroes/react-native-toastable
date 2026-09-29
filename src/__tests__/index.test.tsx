@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { act, create } from 'react-test-renderer';
 import type { ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 
@@ -42,6 +42,9 @@ const render = (element: React.ReactElement) => {
   return renderer!;
 };
 
+const rerender = (element: React.ReactElement) =>
+  act(() => renderer!.update(element));
+
 const advance = (ms: number) =>
   act(() => {
     jest.advanceTimersByTime(ms);
@@ -59,6 +62,13 @@ const isHost = (node: ReactTestInstance, name: string) =>
 const messages = () =>
   renderer!.root
     .findAll((node) => isHost(node, 'Text'))
+    .map((node) => node.props.children);
+
+/** Texts on screen inside the view with `testID`. */
+const messagesIn = (testID: string) =>
+  renderer!.root
+    .findAll((node) => isHost(node, 'View') && node.props.testID === testID)
+    .flatMap((view) => view.findAll((node) => isHost(node, 'Text')))
     .map((node) => node.props.children);
 
 /** The animated view of each toast on screen (it owns the pan handlers). */
@@ -210,6 +220,18 @@ describe('queue', () => {
     expect(messages()).toEqual(['second']);
   });
 
+  it('a toast hidden before it is drawn never shows', () => {
+    const onToastableHide = jest.fn();
+    render(<Toastable />);
+    act(() => {
+      showToastable({ message: 'never', onToastableHide });
+      hideToastable();
+      showToastable({ message: 'next' });
+    });
+    expect(messages()).toEqual(['next']);
+    expect(onToastableHide).toHaveBeenCalledTimes(1);
+  });
+
   it('alwaysVisible keeps the toast until it is hidden', () => {
     render(<Toastable alwaysVisible />);
     show({ message: 'sticky' });
@@ -269,6 +291,71 @@ describe('stack', () => {
     show({ message: 'three' });
     advance(1000);
     expect(messages()).toEqual(['two', 'three']);
+  });
+
+  it('a burst within one tick still keeps maxStack toasts', () => {
+    render(<Toastable displayMode="stack" maxStack={2} duration={60000} />);
+    act(() => {
+      showToastable({ message: 'one' });
+      showToastable({ message: 'two' });
+      showToastable({ message: 'three' });
+    });
+    advance(1000);
+    expect(messages()).toEqual(['two', 'three']);
+  });
+});
+
+describe('hosts', () => {
+  // The second host stands for a <Toastable /> rendered inside a Modal.
+  const App = ({ modal }: { modal: boolean }) => (
+    <View>
+      <View testID="root">
+        <Toastable duration={1000} />
+      </View>
+      {modal ? (
+        <View testID="modal">
+          <Toastable duration={1000} />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  it('a host inside a modal takes over, then hands back to the root host', () => {
+    render(<App modal={false} />);
+    rerender(<App modal />);
+    show({ message: 'in the modal' });
+    advance(500);
+    expect(messagesIn('modal')).toEqual(['in the modal']);
+    expect(messagesIn('root')).toEqual([]);
+
+    advance(3000);
+    rerender(<App modal={false} />);
+    show({ message: 'after the modal' });
+    advance(500);
+    expect(messagesIn('root')).toEqual(['after the modal']);
+  });
+
+  it('a toast shown right before its host unmounts moves to the next host', () => {
+    render(<App modal />);
+    act(() => {
+      showToastable({ message: 'saved' });
+      renderer!.update(<App modal={false} />);
+    });
+    advance(500);
+    expect(messagesIn('root')).toEqual(['saved']);
+  });
+
+  it('toasts on screen and queued in a closing modal move to the root host', () => {
+    render(<App modal />);
+    show({ message: 'one' });
+    show({ message: 'two' });
+    advance(500);
+    expect(messagesIn('modal')).toEqual(['one']);
+
+    rerender(<App modal={false} />);
+    expect(messagesIn('root')).toEqual(['one']);
+    advance(3000);
+    expect(messagesIn('root')).toEqual(['two']);
   });
 });
 

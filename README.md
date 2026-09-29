@@ -86,6 +86,19 @@ export default function HomeScreen() {
 ```
 
 
+## Toasts and modals
+
+A React Native `Modal` draws above the rest of the app (on Android it is a separate window), so a `Toastable` at the root of the app is hidden while a modal is open. Render another `Toastable` as the last child of the modal:
+
+```tsx
+<Modal visible={visible} onRequestClose={close}>
+  <ModalContent />
+  <Toastable offset={top} />
+</Modal>
+```
+
+The most recently mounted `Toastable` shows the toasts. When the modal closes, the root `Toastable` takes over again, and toasts that were still on screen or waiting in the modal move to it, so calling `showToastable()` right before closing the modal still shows the toast.
+
 ## Props
 Inherit all other props from `ToastableBodyParams` interface. Except `backgroundColor`, `status`, `message`, `onPress`, `contentStyle` props.
 
