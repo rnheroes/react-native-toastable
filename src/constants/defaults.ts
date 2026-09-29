@@ -7,6 +7,8 @@ export const TOASTABLE_SWIPE_THRESHOLD = 60;
 export const TOASTABLE_PAN_RESPONDER_THRESHOLD = 4;
 export const TOASTABLE_STACK_GAP = 8;
 export const TOASTABLE_MAX_STACK = 3;
+/** Least time left on the clock after a finger lets go of a toast, in ms. */
+export const TOASTABLE_MIN_RESUME_DURATION = 1000;
 
 export const TOASTABLE_DEFAULT_SWIPE_DIRECTIONS: SwipeDirection[] = [
   'up',

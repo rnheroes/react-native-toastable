@@ -327,6 +327,52 @@ describe('motion', () => {
   });
 });
 
+describe('touch', () => {
+  it('a finger resting on the toast pauses it; letting go resumes the rest', () => {
+    render(<Toastable duration={2000} />);
+    show({ message: 'reading' });
+    advance(1000);
+
+    const finger = touch(toastView()).down();
+    advance(10000);
+    expect(messages()).toEqual(['reading']);
+
+    finger.up();
+    // About 1.6 s were left when the finger landed.
+    advance(1000);
+    expect(messages()).toEqual(['reading']);
+    advance(1100);
+    expect(messages()).toEqual([]);
+  });
+
+  it('letting go near the end still leaves a moment to read', () => {
+    render(<Toastable duration={1000} />);
+    show({ message: 'almost gone' });
+    advance(1550);
+
+    const finger = touch(toastView()).down();
+    advance(3000);
+    finger.up();
+    advance(900);
+    expect(messages()).toEqual(['almost gone']);
+    advance(500);
+    expect(messages()).toEqual([]);
+  });
+
+  it('a finger that lands during the entrance holds the toast too', () => {
+    render(<Toastable duration={1000} />);
+    show({ message: 'early' });
+    advance(50);
+
+    const finger = touch(toastView()).down();
+    advance(5000);
+    expect(messages()).toEqual(['early']);
+    finger.up();
+    advance(1500);
+    expect(messages()).toEqual([]);
+  });
+});
+
 describe('leaving toasts', () => {
   it('a finger that drags a leaving toast does not stall the queue', () => {
     render(<Toastable duration={60000} />);

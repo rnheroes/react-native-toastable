@@ -9,6 +9,7 @@
 - Supports queuinge, so you can display multiple toasts in succession without having to worry about them overlapping or interfering with each other
 - Fully typed, using TypeScript
 - Supports swipe to dismiss multiple directions (left, right, up)
+- Pauses while a finger is on the toast, so it never leaves while being read or dragged
 - Performant, using native animations and avoiding unnecessary re-renders
 - Zero external dependencies
 - Highly customizable, allowing you to tailor it to fit your specific needs

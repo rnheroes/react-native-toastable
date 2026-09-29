@@ -22,6 +22,7 @@ import {
   TOASTABLE_ENTER_SCALE,
   TOASTABLE_ENTER_SPRING,
   TOASTABLE_FADE_IN_DURATION,
+  TOASTABLE_MIN_RESUME_DURATION,
   TOASTABLE_PAN_RESPONDER_THRESHOLD,
   TOASTABLE_SPRING_CONFIG,
   TOASTABLE_SWIPE_THRESHOLD,
@@ -168,6 +169,11 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       hideCalled: false,
       hasEntered: false,
       unmounted: false,
+      // A finger is on the toast.
+      held: false,
+      // Auto-hide time left, and when the clock last started.
+      remaining: itemDuration,
+      clockStartedAt: 0,
       animationType: itemAnimationType,
       animationIn: itemAnimationIn,
       springConfig: itemSpringConfig,
@@ -273,20 +279,54 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
       [clearTimer, finishHide, opacity, scale, translateX, translateY]
     );
 
-    const scheduleAutoHide = useCallback(() => {
-      if (stateRef.current.alwaysVisible) return;
+    // The auto-hide clock runs only while the toast is settled on screen and
+    // no finger is on it. `remaining` carries what is left across pauses.
+    const startClock = useCallback(() => {
+      const state = stateRef.current;
+      if (state.alwaysVisible || state.isClosing) return;
+      if (!state.hasEntered || state.held) return;
       clearTimer();
-      timerRef.current = setTimeout(() => close(), stateRef.current.duration);
+      state.clockStartedAt = Date.now();
+      timerRef.current = setTimeout(() => close(), state.remaining);
     }, [clearTimer, close]);
 
-    // The entrance, or a stack reflow that interrupted it, has settled: the
-    // auto-hide timer starts.
     const markEntered = useCallback(() => {
       const state = stateRef.current;
       if (state.hasEntered) return;
       state.hasEntered = true;
-      scheduleAutoHide();
-    }, [scheduleAutoHide]);
+      state.remaining = state.duration;
+      startClock();
+    }, [startClock]);
+
+    const pauseClock = useCallback(() => {
+      const state = stateRef.current;
+      if (timerRef.current == null) return;
+      const elapsed = Date.now() - state.clockStartedAt;
+      state.remaining = Math.max(0, state.remaining - elapsed);
+      clearTimer();
+    }, [clearTimer]);
+
+    // A finger on the toast (resting, tapping or dragging) stops the clock, so
+    // the toast cannot leave from under the finger while it is being read.
+    const hold = useCallback(() => {
+      const state = stateRef.current;
+      if (state.isClosing || state.held) return;
+      state.held = true;
+      pauseClock();
+    }, [pauseClock]);
+
+    // The finger let go without dismissing: the clock resumes where it was,
+    // with at least a moment left to finish reading.
+    const release = useCallback(() => {
+      const state = stateRef.current;
+      if (!state.held) return;
+      state.held = false;
+      state.remaining = Math.max(
+        state.remaining,
+        Math.min(state.duration, TOASTABLE_MIN_RESUME_DURATION)
+      );
+      startClock();
+    }, [startClock]);
 
     useImperativeHandle(ref, () => ({ close: () => close() }), [close]);
 
@@ -377,90 +417,82 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
     // Cleanup any pending timer on unmount. An exit animation stopped by the
     // unmount must not report a hide for a toast that is already gone.
     // StrictMode and a hidden Activity run this cleanup and then the effect
-    // again on the same toast: a toast whose exit the detach stopped is
-    // removed.
+    // again on the same toast: the clock goes on with the time it had left,
+    // and a toast whose exit the detach stopped is removed.
     useEffect(() => {
       const state = stateRef.current;
       state.unmounted = false;
       if (state.isClosing) finishHide();
+      else startClock();
       return () => {
         state.unmounted = true;
-        clearTimer();
+        pauseClock();
       };
-    }, [clearTimer, finishHide]);
+    }, [finishHide, pauseClock, startClock]);
 
-    const panResponder = useMemo(
-      () =>
-        PanResponder.create({
-          // A toast that is already leaving ignores the finger: moving it
-          // would stop the exit animation halfway.
-          onMoveShouldSetPanResponder: (_evt, g) =>
-            !stateRef.current.isClosing &&
-            (Math.abs(g.dx) >= TOASTABLE_PAN_RESPONDER_THRESHOLD ||
-              Math.abs(g.dy) >= TOASTABLE_PAN_RESPONDER_THRESHOLD),
-          onPanResponderGrant: clearTimer,
-          onPanResponderMove: (_evt, g) => {
-            if (stateRef.current.isClosing) return;
-            const dir = detectDirection(g.dx, g.dy);
-            const allowed = stateRef.current.swipeDir;
-            if (!isDirectionAllowed(g.dx, g.dy, dir, allowed)) return;
-            if (dir === 'left' || dir === 'right') {
-              translateX.setValue(g.dx);
-            } else {
-              // Drag relative to current resting position.
-              translateY.setValue(stateRef.current.restY + g.dy);
-            }
-          },
-          onPanResponderRelease: (_evt, g: PanResponderGestureState) => {
-            if (stateRef.current.isClosing) return;
-            const dir = detectDirection(g.dx, g.dy);
-            const distance =
-              dir === 'left' || dir === 'right'
-                ? Math.abs(g.dx)
-                : Math.abs(g.dy);
-            const allowed = isDirectionAllowed(
-              g.dx,
-              g.dy,
-              dir,
-              stateRef.current.swipeDir
-            );
+    const panResponder = useMemo(() => {
+      // Back to rest after a drag that did not dismiss. The finger may have
+      // interrupted the entrance, so settling here also counts as entered.
+      const settle = () => {
+        Animated.parallel(
+          [
+            Animated.spring(translateX, {
+              ...TOASTABLE_SPRING_CONFIG,
+              toValue: 0,
+            }),
+            Animated.spring(translateY, {
+              ...TOASTABLE_SPRING_CONFIG,
+              toValue: stateRef.current.restY,
+            }),
+          ],
+          { stopTogether: false }
+        ).start(markEntered);
+        release();
+      };
+      return PanResponder.create({
+        // A toast that is already leaving ignores the finger: moving it
+        // would stop the exit animation halfway.
+        onMoveShouldSetPanResponder: (_evt, g) =>
+          !stateRef.current.isClosing &&
+          (Math.abs(g.dx) >= TOASTABLE_PAN_RESPONDER_THRESHOLD ||
+            Math.abs(g.dy) >= TOASTABLE_PAN_RESPONDER_THRESHOLD),
+        onPanResponderGrant: hold,
+        onPanResponderMove: (_evt, g) => {
+          if (stateRef.current.isClosing) return;
+          const dir = detectDirection(g.dx, g.dy);
+          const allowed = stateRef.current.swipeDir;
+          if (!isDirectionAllowed(g.dx, g.dy, dir, allowed)) return;
+          if (dir === 'left' || dir === 'right') {
+            translateX.setValue(g.dx);
+          } else {
+            // Drag relative to current resting position.
+            translateY.setValue(stateRef.current.restY + g.dy);
+          }
+        },
+        onPanResponderRelease: (_evt, g: PanResponderGestureState) => {
+          if (stateRef.current.isClosing) return;
+          const dir = detectDirection(g.dx, g.dy);
+          const distance =
+            dir === 'left' || dir === 'right' ? Math.abs(g.dx) : Math.abs(g.dy);
+          const allowed = isDirectionAllowed(
+            g.dx,
+            g.dy,
+            dir,
+            stateRef.current.swipeDir
+          );
 
-            if (allowed && distance > TOASTABLE_SWIPE_THRESHOLD) {
-              close(dir);
-              return;
-            }
-
-            Animated.parallel([
-              Animated.spring(translateX, {
-                ...TOASTABLE_SPRING_CONFIG,
-                toValue: 0,
-              }),
-              Animated.spring(translateY, {
-                ...TOASTABLE_SPRING_CONFIG,
-                toValue: stateRef.current.restY,
-              }),
-            ]).start(({ finished }) => {
-              if (finished) scheduleAutoHide();
-            });
-          },
-          onPanResponderTerminate: () => {
-            if (stateRef.current.isClosing) return;
-            Animated.parallel([
-              Animated.spring(translateX, {
-                ...TOASTABLE_SPRING_CONFIG,
-                toValue: 0,
-              }),
-              Animated.spring(translateY, {
-                ...TOASTABLE_SPRING_CONFIG,
-                toValue: stateRef.current.restY,
-              }),
-            ]).start(({ finished }) => {
-              if (finished) scheduleAutoHide();
-            });
-          },
-        }),
-      [clearTimer, close, scheduleAutoHide, translateX, translateY]
-    );
+          if (allowed && distance > TOASTABLE_SWIPE_THRESHOLD) {
+            close(dir);
+            return;
+          }
+          settle();
+        },
+        onPanResponderTerminate: () => {
+          if (stateRef.current.isClosing) return;
+          settle();
+        },
+      });
+    }, [close, hold, markEntered, release, translateX, translateY]);
 
     const onPress = useCallback(() => {
       if (stateRef.current.alwaysVisible) close();
@@ -479,6 +511,9 @@ export const ToastItem = forwardRef<ToastItemHandle, ToastItemProps>(
           },
         ]}
         {...panResponder.panHandlers}
+        onTouchStart={hold}
+        onTouchEnd={release}
+        onTouchCancel={release}
       >
         <ToastableBody
           message={data.message}
